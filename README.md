@@ -5,7 +5,8 @@ Aplicación móvil desarrollada para la gestión de condominios.
 ## Integrantes
 
 - Axel Antonio Xitumul Chen
-- (Agregar los demás integrantes)
+- Kenett Alexander Ortega Ceron
+- Junior Noé Lancerio Lopéz
 
 ## Tecnologías
 
