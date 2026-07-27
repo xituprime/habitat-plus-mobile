@@ -7,13 +7,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.habitatplus.app.core.components.AppScaffold
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import com.habitatplus.app.core.constants.AppConstants
 
 @Composable
 fun ParkingScreen() {
 
-    AppScaffold { paddingValues ->
+    Scaffold { paddingValues ->
 
         Column(
             modifier = Modifier
@@ -23,7 +24,7 @@ fun ParkingScreen() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            Text("HabitatPlus")
+            Text(AppConstants.APP_NAME)
 
         }
 
