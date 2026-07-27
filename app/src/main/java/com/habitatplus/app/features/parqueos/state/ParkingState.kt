@@ -1,7 +1,16 @@
 package com.habitatplus.app.features.parqueos.state
 
-class ParkingState {
+import com.habitatplus.app.features.parqueos.model.ParkingHistory
+import com.habitatplus.app.features.parqueos.model.ParkingSpace
 
-    val isLoading: Boolean = false
+data class ParkingState(
+    val residentParkings: List<ParkingSpace> = emptyList(),
 
-}
+    val visitorParkings: List<ParkingSpace> = emptyList(),
+
+    val recentHistory: List<ParkingHistory> = emptyList(),
+
+    val isLoading: Boolean = false,
+
+    val error: String? = null
+)
