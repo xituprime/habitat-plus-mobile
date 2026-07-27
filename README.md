@@ -1,27 +1,100 @@
 # HabitatPlus Mobile
 
-Aplicación móvil desarrollada para la gestión de condominios.
+Aplicación móvil para la administración inteligente de condominios, desarrollada como proyecto académico utilizando Kotlin, Jetpack Compose y Material 3.
 
-## Integrantes
+---
 
-- Axel Antonio Xitumul Chen
-- Kenett Alexander Ortega Ceron
-- Junior Noé Lancerio Lopéz
+# Arquitectura
 
-## Tecnologías
+El proyecto utiliza:
+
+- Feature-Based Architecture
+- MVI (Model - View - Intent)
+- Navigation Compose
+- Material 3
+- Kotlin
+
+La arquitectura se encuentra documentada en la carpeta:
+
+```
+docs/
+```
+
+---
+
+# Tecnologías
 
 - Kotlin
 - Jetpack Compose
+- Material 3
+- Navigation Compose
 - Android Studio
 - Git
 - GitHub
 
-## Ramas
+---
 
-- `main` → versiones estables.
-- `develop` → integración del proyecto.
-- `feature/*` → desarrollo de funcionalidades.
+# Estructura
 
-## Estado del proyecto
+```
+com.habitatplus.app
+│
+├── core
+├── features
+├── navigation
+└── ui
+```
 
-🚧 En desarrollo.
+Cada módulo implementa la siguiente estructura:
+
+```
+feature
+│
+├── intent
+├── model
+├── state
+├── ui
+└── viewmodel
+```
+
+---
+
+# Flujo de trabajo
+
+```
+feature/*
+        │
+        ▼
+develop
+        │
+        ▼
+main
+```
+
+Todo cambio debe realizarse mediante Pull Request.
+
+---
+
+# Documentación
+
+La carpeta `docs` contiene:
+
+- Architecture.md
+- GitWorkflow.md
+- CodingStandards.md
+
+---
+
+# Integrantes
+
+- Axel Antonio Xitumul Chen
+- Junior
+- Kennet
+
+---
+
+# Estado del proyecto
+
+🚧 Arquitectura V1.0 completada.
+
+Actualmente se encuentra en desarrollo de funcionalidades.
