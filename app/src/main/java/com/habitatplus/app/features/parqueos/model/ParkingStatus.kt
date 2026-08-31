@@ -1,7 +1,7 @@
 package com.habitatplus.app.features.parqueos.model
 
 enum class ParkingStatus{
-    ASSIGNDED,
+    ASSIGNED,
     AVAILABLE,
     OCCUPIED,
     MAINTENANCE

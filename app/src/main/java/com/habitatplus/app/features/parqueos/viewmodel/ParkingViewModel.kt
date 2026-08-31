@@ -5,6 +5,7 @@ import com.habitatplus.app.features.parqueos.model.ParkingHistory
 import com.habitatplus.app.features.parqueos.model.ParkingSpace
 import com.habitatplus.app.features.parqueos.model.ParkingStatus
 import com.habitatplus.app.features.parqueos.model.ParkingType
+import com.habitatplus.app.features.parqueos.model.UserRole
 import com.habitatplus.app.features.parqueos.state.ParkingState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +31,7 @@ class ParkingViewModel: ViewModel() {
                     id = "P-12",
                     apartment = "A-203",
                     type = ParkingType.RESIDENT,
-                    status = ParkingStatus.ASSIGNDED
+                    status = ParkingStatus.ASSIGNED
                 )
             ),
 
@@ -65,7 +66,11 @@ class ParkingViewModel: ViewModel() {
                     time = "17:00",
                     status = "Finalizada"
                 )
-            )
+            ),
+
+            registeredResidentParkings = 120,
+
+            userRole = UserRole.RESIDENT
         )
     }
 }
