@@ -16,7 +16,7 @@ private val HabitatLightColors = lightColorScheme(
     background = BackgroundLight,
     onBackground = TextPrimary,
 
-    surface = BackgroundLight,
+    surface = SurfaceLight,
     onSurface = TextPrimary,
 
     error = Error,
