@@ -2,40 +2,50 @@ package com.habitatplus.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// ============================================================
+// Habitat+ - Brand Colors
+// ============================================================
 
+// Primarios
 val HabitatBlue = Color(0xFF0B2F78)
-val HabitatBlueSecondary = Color(0xFF3D6FC7)
-val HabitatBlueLight = Color(0xFFDCE8FF)
+val HabitatSecondary = Color(0xFF3D6FC7)
+val HabitatLightBlue = Color(0xFFDCE8FF)
 
-val BackgroundLight = Color(0xFFF8FAFC)
+// Fondos y superficies
+val HabitatBackground = Color(0xFFF8FAFC)
+val HabitatSurface = Color(0xFFFFFFFF)
 
-val TextPrimary = Color(0xFF1E293B)
-val TextSecondary = Color(0xFF64748B)
+// Texto
+val HabitatTextPrimary = Color(0xFF1E293B)
+val HabitatTextSecondary = Color(0xFF64748B)
 
-/*
- * Colores de estado
- */
+// ============================================================
+// Parking Status
+// ============================================================
 
-val Success = Color(0xFF15803D)
-val Error = Color(0xFFB91C1C)
-val Warning = Color(0xFFCA8A04)
-val Information = Color(0xFF0284C7)
+val ParkingAvailable = Color(0xFF16A34A)
+val ParkingOccupied = Color(0xFFDC2626)
+val ParkingMaintenance = Color(0xFFF59E0B)
 
-/*
- * Estados del negocio
- */
+// Contenedores suaves para badges/chips
+val ParkingAvailableContainer = Color(0xFFDCFCE7)
+val ParkingOccupiedContainer = Color(0xFFFEE2E2)
+val ParkingMaintenanceContainer = Color(0xFFFEF3C7)
 
-val Available = Color(0xFF16A34A)
-val Occupied = Color(0xFFDC2626)
-val Maintenance = Color(0xFFF59E0B)
-val Pending = Color(0xFFEAB308)
-val InProgress = Color(0xFF2563EB)
+// ============================================================
+// General Status
+// ============================================================
 
-/*
- * Colores de apoyo por módulo
- */
+val StatusPending = Color(0xFFEAB308)
+val StatusInProgress = Color(0xFF2563EB)
+val StatusResolved = Color(0xFF22C55E)
 
-val ParkingAccent = Color(0xFF16A34A)
-val ReportsAccent = Color(0xFFF59E0B)
-val CommonAreasAccent = Color(0xFF7C3AED)
-val ProfileAccent = Color(0xFF64748B)
+val StatusError = Color(0xFFB91C1C)
+val StatusWarning = Color(0xFFCA8A04)
+val StatusInfo = Color(0xFF0284C7)
+
+// ============================================================
+// Additional Containers
+// ============================================================
+
+val HabitatBlueContainer = Color(0xFFEFF6FF)

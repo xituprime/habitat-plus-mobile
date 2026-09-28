@@ -1,132 +1,198 @@
 package com.habitatplus.app.features.parqueos.ui
 
-import android.service.autofill.OnClickAction
-import android.widget.Space
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.habitatplus.app.features.parqueos.model.ParkingSpace
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import com.habitatplus.app.features.parqueos.model.ParkingStatus
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.habitatplus.app.ui.theme.HabitatPlusTheme
+import androidx.compose.ui.unit.sp
+import com.habitatplus.app.features.parqueos.model.ParkingSpace
+import com.habitatplus.app.features.parqueos.model.ParkingStatus
+import com.habitatplus.app.ui.theme.HabitatBlue
+import com.habitatplus.app.ui.theme.HabitatLightBlue
+import com.habitatplus.app.ui.theme.HabitatSurface
+import com.habitatplus.app.ui.theme.HabitatTextPrimary
+import com.habitatplus.app.ui.theme.HabitatTextSecondary
+import com.habitatplus.app.ui.theme.ParkingAvailable
+import com.habitatplus.app.ui.theme.ParkingAvailableContainer
+import com.habitatplus.app.ui.theme.ParkingMaintenance
+import com.habitatplus.app.ui.theme.ParkingMaintenanceContainer
+import com.habitatplus.app.ui.theme.ParkingOccupied
+import com.habitatplus.app.ui.theme.ParkingOccupiedContainer
 
 @Composable
 fun VisitorParkingCard(
     parking: ParkingSpace,
     onReserveClick: () -> Unit = {}
-){
-
+) {
     Card(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = HabitatSurface
+        ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp
+            defaultElevation = 2.dp
         )
     ) {
-
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = parking.id,
-                style = MaterialTheme.typography.titleMedium
-            )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
 
-            // Muestra el estado visualmente
-            ParkingStatusIndicator(
-                status = parking.status
-            )
+                Column {
+                    Text(
+                        text = parking.id,
+                        color = HabitatTextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
 
-            Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = when (parking.id) {
+                            "V-01" -> "Nivel Calle"
+                            "V-02" -> "Nivel Calle"
+                            "V-03" -> "Sótano 1"
+                            else -> "Parqueo de visita"
+                        },
+                        color = HabitatTextSecondary,
+                        fontSize = 10.sp
+                    )
+                }
 
+                ParkingBadge(
+                    status = parking.status
+                )
+            }
 
             when (parking.status) {
 
                 ParkingStatus.AVAILABLE -> {
-                    Button(
-                        onClick = onReserveClick
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Reservar")
+                        Text(
+                            text = "Listo para asignación inmediata",
+                            color = HabitatTextSecondary,
+                            fontSize = 10.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        Button(
+                            onClick = onReserveClick,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = HabitatBlue
+                            )
+                        ) {
+                            Text(
+                                text = "Reservar",
+                                fontSize = 11.sp
+                            )
+                        }
                     }
                 }
 
                 ParkingStatus.OCCUPIED -> {
-                    parking.occupiedUntil?.let {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = HabitatLightBlue.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
                         Text(
-                            text = "Hasta las $it"
+                            text = "Vehículo registrado • Ingreso 08:30" +
+                                    (parking.occupiedUntil?.let {
+                                        " • Hasta $it"
+                                    } ?: ""),
+                            modifier = Modifier.padding(10.dp),
+                            color = HabitatTextSecondary,
+                            fontSize = 10.sp
                         )
                     }
                 }
 
-                ParkingStatus.MAINTENANCE -> Unit
+                ParkingStatus.MAINTENANCE -> {
+                    Text(
+                        text = "Mantenimiento preventivo programado",
+                        color = HabitatTextSecondary,
+                        fontSize = 10.sp
+                    )
+                }
 
                 ParkingStatus.ASSIGNED -> Unit
             }
         }
     }
 }
+
 @Composable
-private fun ParkingStatusIndicator(
+private fun ParkingBadge(
     status: ParkingStatus
 ) {
-    val statusText: String
-    val statusColor: Color
+    val text: String
+    val foreground: Color
+    val background: Color
 
     when (status) {
         ParkingStatus.AVAILABLE -> {
-            statusText = "Disponible"
-            statusColor = Color(0xFF4CAF50)
+            text = "● Disponible"
+            foreground = ParkingAvailable
+            background = ParkingAvailableContainer
         }
 
         ParkingStatus.OCCUPIED -> {
-            statusText = "Ocupado"
-            statusColor = Color(0xFFF44336)
+            text = "● Ocupado"
+            foreground = ParkingOccupied
+            background = ParkingOccupiedContainer
         }
 
         ParkingStatus.MAINTENANCE -> {
-            statusText = "Mantenimiento"
-            statusColor = Color(0xFFFF9800)
+            text = "⚒ Mantenimiento"
+            foreground = ParkingMaintenance
+            background = ParkingMaintenanceContainer
         }
 
         ParkingStatus.ASSIGNED -> {
-            statusText = "Asignado"
-            statusColor = MaterialTheme.colorScheme.primary
+            text = "Asignado"
+            foreground = HabitatBlue
+            background = HabitatLightBlue
         }
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        color = background,
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .background(
-                    color = statusColor,
-                    shape = CircleShape
-                )
-        )
-
-        Spacer(
-            modifier = Modifier.width(8.dp)
-        )
-
         Text(
-            text = statusText,
-            style = MaterialTheme.typography.bodyMedium
+            text = text,
+            modifier = Modifier.padding(
+                horizontal = 8.dp,
+                vertical = 4.dp
+            ),
+            color = foreground,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium
         )
     }
 }

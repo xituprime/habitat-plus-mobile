@@ -1,8 +1,12 @@
 package com.habitatplus.app.features.parqueos.intent
 
-sealed interface ParkingIntent{
+sealed interface ParkingIntent {
 
     data object LoadData : ParkingIntent
+
+    data class StartReservation(
+        val parkingId: String
+    ) : ParkingIntent
 
     data class ReserveParking(
         val parkingId: String
@@ -27,4 +31,34 @@ sealed interface ParkingIntent{
     data class ChangeParkingStatus(
         val parkingId: String
     ) : ParkingIntent
+
+    data class VisitorNameChanged(
+        val value: String
+    ) : ParkingIntent
+
+    data class LicensePlateChanged(
+        val value: String
+    ) : ParkingIntent
+
+    data class VehicleBrandChanged(
+        val value: String
+    ) : ParkingIntent
+
+    data class VehicleColorChanged(
+        val value: String
+    ) : ParkingIntent
+
+    data class DateChanged(
+        val value: String
+    ) : ParkingIntent
+
+    data class EntryTimeChanged(
+        val value: String
+    ) : ParkingIntent
+
+    data class ExitTimeChanged(
+        val value: String
+    ) : ParkingIntent
+
+    data object SubmitReservation : ParkingIntent
 }
