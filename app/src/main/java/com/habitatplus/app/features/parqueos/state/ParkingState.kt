@@ -1,7 +1,22 @@
 package com.habitatplus.app.features.parqueos.state
 
-class ParkingState {
+import com.habitatplus.app.features.parqueos.model.ParkingHistory
+import com.habitatplus.app.features.parqueos.model.ParkingSpace
+import com.habitatplus.app.features.parqueos.model.ReservationForm
+import com.habitatplus.app.features.parqueos.model.UserRole
 
-    val isLoading: Boolean = false
+data class ParkingState(
+    val residentParkings: List<ParkingSpace> = emptyList(),
+    val visitorParkings: List<ParkingSpace> = emptyList(),
+    val recentHistory: List<ParkingHistory> = emptyList(),
 
-}
+    val userRole: UserRole = UserRole.RESIDENT,
+    val registeredResidentParkings: Int = 0,
+
+    val reservationForm: ReservationForm = ReservationForm(),
+
+    val isLoading: Boolean = false,
+    val error: String? = null,
+
+    val reservationSuccess: Boolean = false
+)

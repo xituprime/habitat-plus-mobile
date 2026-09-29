@@ -7,15 +7,18 @@ import androidx.navigation.compose.rememberNavController
 import com.habitatplus.app.features.parqueos.ui.ParkingScreen
 
 @Composable
-fun NavGraph(){
+fun NavGraph() {
 
     val navController = rememberNavController()
 
     NavHost(
         navController = navController,
         startDestination = Routes.HOME
-    ){
-        composable(Routes.HOME) {
+    ) {
+
+        composable(
+            route = Routes.HOME
+        ) {
             ParkingScreen()
         }
     }
