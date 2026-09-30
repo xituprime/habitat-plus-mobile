@@ -23,6 +23,7 @@ private val LightColorScheme = lightColorScheme(
     secondary = HabitatSecondary,
     onSecondary = HabitatSurface,
 
+   
     secondaryContainer = HabitatLightBlue,
     onSecondaryContainer = HabitatTextPrimary,
 
