@@ -16,13 +16,19 @@ import androidx.compose.ui.unit.sp
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.*
+import androidx.compose.foundation.clickable
 
 @Composable
-fun ParkingScreen() {
+fun ParkingScreen(
+    onReservationClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    onDestinationClick: (HabitatDestination) -> Unit = {}
+) {
 
     HabitatScaffold(
         title = "Parqueos",
-        selectedDestination = HabitatDestination.PARKING
+        selectedDestination = HabitatDestination.PARKING,
+        onDestinationClick = onDestinationClick
     ) { innerPadding ->
 
         Column(
@@ -165,7 +171,10 @@ fun ParkingScreen() {
                     text = "Ver historial",
                     color = HabitatBlue,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable {
+                        onHistoryClick()
+                    }
                 )
             }
 
@@ -186,7 +195,7 @@ fun ParkingScreen() {
                 horizontalArrangement = Arrangement.End
             ) {
                 Button(
-                    onClick = {},
+                    onClick = onReservationClick,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = HabitatBlue

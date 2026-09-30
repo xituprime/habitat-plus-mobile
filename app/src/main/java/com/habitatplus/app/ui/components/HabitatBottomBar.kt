@@ -1,5 +1,6 @@
 package com.habitatplus.app.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,8 @@ import com.habitatplus.app.ui.theme.HabitatTextSecondary
 
 @Composable
 fun HabitatBottomBar(
-    selectedDestination: HabitatDestination
+    selectedDestination: HabitatDestination,
+    onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
     Surface(
         color = HabitatSurface,
@@ -48,6 +50,9 @@ fun HabitatBottomBar(
                     destination == selectedDestination
 
                 Column(
+                    modifier = Modifier.clickable {
+                        onDestinationClick(destination)
+                    },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {

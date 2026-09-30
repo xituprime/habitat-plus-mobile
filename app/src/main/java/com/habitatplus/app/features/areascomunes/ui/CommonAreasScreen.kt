@@ -37,96 +37,104 @@ import com.habitatplus.app.R
 import com.habitatplus.app.features.areascomunes.model.CommonArea
 import com.habitatplus.app.features.areascomunes.model.CommonAreaStatus
 import com.habitatplus.app.features.areascomunes.state.CommonAreaState
+import com.habitatplus.app.ui.components.HabitatDestination
+import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
 @Composable
 fun CommonAreasScreen(
     state: CommonAreaState,
-    onAreaClick: (CommonArea) -> Unit = {}
+    onAreaClick: (CommonArea) -> Unit = {},
+    onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                MaterialTheme.colorScheme.background
-            )
-            .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp
-            )
-    ) {
+    HabitatScaffold(
+        title = "Áreas Comunes",
+        selectedDestination = HabitatDestination.AREAS,
+        onDestinationClick = onDestinationClick
+    ) { innerPadding ->
 
-        // Encabezado del contenido.
-        // El TopAppBar global NO pertenece a esta pantalla.
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(
+                    MaterialTheme.colorScheme.background
+                )
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 8.dp
+                )
         ) {
 
-            Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom
+            ) {
 
-                Text(
-                    text = "INSTALACIONES",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
+                Column {
+
+                    Text(
+                        text = "INSTALACIONES",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Text(
+                        text = "Reserva de Espacios",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(
+                    modifier = Modifier.weight(1f)
                 )
 
-                Text(
-                    text = "Reserva de Espacios",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+
+                    Text(
+                        text = "${state.areas.size} áreas",
+                        modifier = Modifier.padding(
+                            horizontal = 10.dp,
+                            vertical = 5.dp
+                        ),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             Spacer(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.height(10.dp)
             )
 
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = MaterialTheme.colorScheme.primaryContainer
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
 
-                Text(
-                    text = "${state.areas.size} áreas",
-                    modifier = Modifier.padding(
-                        horizontal = 10.dp,
-                        vertical = 5.dp
-                    ),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-
-            items(
-                items = state.areas,
-                key = { area ->
-                    area.id
-                }
-            ) { area ->
-
-                CommonAreaCard(
-                    area = area,
-                    onClick = {
-                        onAreaClick(area)
+                items(
+                    items = state.areas,
+                    key = { area ->
+                        area.id
                     }
-                )
+                ) { area ->
+
+                    CommonAreaCard(
+                        area = area,
+                        onClick = {
+                            onAreaClick(area)
+                        }
+                    )
+                }
             }
         }
     }
@@ -153,8 +161,6 @@ private fun CommonAreaCard(
             modifier = Modifier.fillMaxWidth()
         ) {
 
-            // Fotografía del área
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -177,8 +183,6 @@ private fun CommonAreaCard(
                     contentScale = ContentScale.Crop
                 )
 
-                // Estado
-
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -199,8 +203,6 @@ private fun CommonAreaCard(
                     )
                 }
 
-                // Disponibilidad / dato principal
-
                 Surface(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -219,8 +221,6 @@ private fun CommonAreaCard(
                         fontWeight = FontWeight.Medium
                     )
                 }
-
-                // Interior / Exterior / Solárium / Techado
 
                 Surface(
                     modifier = Modifier
@@ -249,8 +249,6 @@ private fun CommonAreaCard(
                 )
             ) {
 
-                // Nombre
-
                 Text(
                     text = area.name,
                     fontSize = 16.sp,
@@ -260,8 +258,6 @@ private fun CommonAreaCard(
                 Spacer(
                     modifier = Modifier.height(2.dp)
                 )
-
-                // Descripción
 
                 Text(
                     text = area.description,
@@ -275,8 +271,6 @@ private fun CommonAreaCard(
                 Spacer(
                     modifier = Modifier.height(6.dp)
                 )
-
-                // Características
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -388,6 +382,7 @@ private fun statusColor(
 @Preview(
     showBackground = true,
     showSystemUi = true,
+    device = "spec:width=411dp,height=891dp,dpi=420",
     name = "Áreas - Teléfono"
 )
 @Composable

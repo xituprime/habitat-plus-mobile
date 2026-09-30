@@ -20,12 +20,17 @@ import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.*
 
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(
+    onBackClick: () -> Unit = {},
+    onDestinationClick: (HabitatDestination) -> Unit = {}
+) {
 
     HabitatScaffold(
         title = "Historial de Parqueo",
         selectedDestination = HabitatDestination.PARKING,
-        showBackButton = true
+        showBackButton = true,
+        onBackClick = onBackClick,
+        onDestinationClick = onDestinationClick
     ) { innerPadding ->
 
         Column(

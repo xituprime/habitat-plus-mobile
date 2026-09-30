@@ -38,6 +38,8 @@ import com.habitatplus.app.features.reportes.model.Report
 import com.habitatplus.app.features.reportes.model.ReportCategory
 import com.habitatplus.app.features.reportes.model.ReportStatus
 import com.habitatplus.app.features.reportes.state.ReportState
+import com.habitatplus.app.ui.components.HabitatDestination
+import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
 @Composable
@@ -45,7 +47,8 @@ fun ReportsScreen(
     state: ReportState,
     onIntent: (ReportIntent) -> Unit = {},
     onNewReportClick: () -> Unit = {},
-    onReportClick: (Report) -> Unit = {}
+    onReportClick: (Report) -> Unit = {},
+    onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
 
     val filteredReports = state.reports.filter { report ->
@@ -70,183 +73,205 @@ fun ReportsScreen(
         matchesSearch && matchesStatus
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp
-            )
-    ) {
+    HabitatScaffold(
+        title = "Reportes",
+        selectedDestination = HabitatDestination.REPORTS,
+        onDestinationClick = onDestinationClick
+    ) { innerPadding ->
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-
-            Text(
-                text = "Reportes de Incidencias",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
-
-            Text(
-                text = "${state.reports.count { it.status != ReportStatus.RESOLVED }} activos",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        Text(
-            text = "Gestione y dé seguimiento a las solicitudes de mantenimiento de la comunidad.",
-            fontSize = 12.sp,
-            lineHeight = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
-        OutlinedTextField(
-            value = state.searchQuery,
-            onValueChange = {
-                onIntent(
-                    ReportIntent.SearchReports(it)
-                )
-            },
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp),
-            placeholder = {
-                Text(
-                    text = "Buscar por descripción o categoría...",
-                    fontSize = 12.sp
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(
+                    MaterialTheme.colorScheme.background
                 )
-            },
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodySmall,
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = Color.Transparent,
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        )
-
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(
-                    rememberScrollState()
-                ),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 8.dp
+                )
         ) {
 
-            ReportFilterChip(
-                text = "Todos",
-                selected = state.selectedStatus == null,
-                onClick = {
-                    onIntent(
-                        ReportIntent.FilterByStatus(null)
-                    )
-                }
-            )
-
-            ReportFilterChip(
-                text = "Pendientes",
-                selected = state.selectedStatus == ReportStatus.PENDING,
-                onClick = {
-                    onIntent(
-                        ReportIntent.FilterByStatus(
-                            ReportStatus.PENDING
-                        )
-                    )
-                }
-            )
-
-            ReportFilterChip(
-                text = "En proceso",
-                selected = state.selectedStatus == ReportStatus.IN_PROGRESS,
-                onClick = {
-                    onIntent(
-                        ReportIntent.FilterByStatus(
-                            ReportStatus.IN_PROGRESS
-                        )
-                    )
-                }
-            )
-
-            ReportFilterChip(
-                text = "Resueltos",
-                selected = state.selectedStatus == ReportStatus.RESOLVED,
-                onClick = {
-                    onIntent(
-                        ReportIntent.FilterByStatus(
-                            ReportStatus.RESOLVED
-                        )
-                    )
-                }
-            )
-        }
-
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
-
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-
-            items(
-                items = filteredReports,
-                key = { it.id }
-            ) { report ->
-
-                ReportCard(
-                    report = report,
-                    onClick = {
-                        onReportClick(report)
-                    }
-                )
-            }
-        }
-
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-
-            Button(
-                onClick = onNewReportClick,
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
 
                 Text(
-                    text = "+  Nuevo Reporte",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
+                    text = "Reportes de Incidencias",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
                 )
+
+                Spacer(
+                    modifier = Modifier.weight(1f)
+                )
+
+                Text(
+                    text = "${state.reports.count { it.status != ReportStatus.RESOLVED }} activos",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Text(
+                text = "Gestione y dé seguimiento a las solicitudes de mantenimiento de la comunidad.",
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+
+            OutlinedTextField(
+                value = state.searchQuery,
+                onValueChange = {
+                    onIntent(
+                        ReportIntent.SearchReports(it)
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp),
+                placeholder = {
+                    Text(
+                        text = "Buscar por descripción o categoría...",
+                        fontSize = 12.sp
+                    )
+                },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor =
+                        MaterialTheme.colorScheme.primary,
+                    unfocusedContainerColor =
+                        MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor =
+                        MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(
+                        rememberScrollState()
+                    ),
+                horizontalArrangement =
+                    Arrangement.spacedBy(6.dp)
+            ) {
+
+                ReportFilterChip(
+                    text = "Todos",
+                    selected = state.selectedStatus == null,
+                    onClick = {
+                        onIntent(
+                            ReportIntent.FilterByStatus(null)
+                        )
+                    }
+                )
+
+                ReportFilterChip(
+                    text = "Pendientes",
+                    selected =
+                        state.selectedStatus ==
+                                ReportStatus.PENDING,
+                    onClick = {
+                        onIntent(
+                            ReportIntent.FilterByStatus(
+                                ReportStatus.PENDING
+                            )
+                        )
+                    }
+                )
+
+                ReportFilterChip(
+                    text = "En proceso",
+                    selected =
+                        state.selectedStatus ==
+                                ReportStatus.IN_PROGRESS,
+                    onClick = {
+                        onIntent(
+                            ReportIntent.FilterByStatus(
+                                ReportStatus.IN_PROGRESS
+                            )
+                        )
+                    }
+                )
+
+                ReportFilterChip(
+                    text = "Resueltos",
+                    selected =
+                        state.selectedStatus ==
+                                ReportStatus.RESOLVED,
+                    onClick = {
+                        onIntent(
+                            ReportIntent.FilterByStatus(
+                                ReportStatus.RESOLVED
+                            )
+                        )
+                    }
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
+            ) {
+
+                items(
+                    items = filteredReports,
+                    key = { it.id }
+                ) { report ->
+
+                    ReportCard(
+                        report = report,
+                        onClick = {
+                            onReportClick(report)
+                        }
+                    )
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+
+                Button(
+                    onClick = onNewReportClick,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor =
+                            MaterialTheme.colorScheme.primary
+                    )
+                ) {
+
+                    Text(
+                        text = "+  Nuevo Reporte",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
@@ -270,8 +295,10 @@ private fun ReportFilterChip(
         },
         shape = RoundedCornerShape(50),
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+            selectedContainerColor =
+                MaterialTheme.colorScheme.primary,
+            selectedLabelColor =
+                MaterialTheme.colorScheme.onPrimary
         )
     )
 }
@@ -287,7 +314,8 @@ private fun ReportCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor =
+                MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
@@ -316,7 +344,8 @@ private fun ReportCard(
                     Text(
                         text = "Ref: #${report.id}",
                         fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -347,7 +376,8 @@ private fun ReportCard(
                 lineHeight = 13.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color =
+                    MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(
@@ -362,7 +392,8 @@ private fun ReportCard(
                 Text(
                     text = report.date,
                     fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(
@@ -373,7 +404,8 @@ private fun ReportCard(
                     text = statusActionText(report.status),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
+                    color =
+                        MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -446,6 +478,7 @@ private fun categoryText(
 @Preview(
     showBackground = true,
     showSystemUi = true,
+    device = "spec:width=411dp,height=891dp,dpi=420",
     name = "Reportes"
 )
 @Composable

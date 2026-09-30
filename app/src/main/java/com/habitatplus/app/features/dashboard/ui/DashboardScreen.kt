@@ -7,10 +7,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.habitatplus.app.core.components.*
 import com.habitatplus.app.features.dashboard.intent.DashboardIntent
 import com.habitatplus.app.features.dashboard.state.DashboardState
+import com.habitatplus.app.features.parqueos.ui.ReservationScreen
+import com.habitatplus.app.ui.components.HabitatDestination
+import com.habitatplus.app.ui.components.HabitatScaffold
+import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
 @Composable
 fun DashboardScreen(
@@ -22,15 +27,24 @@ fun DashboardScreen(
     onAreas: () -> Unit,
     onReports: () -> Unit,
     onProfile: () -> Unit,
+    onDestinationClick: (HabitatDestination) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    ResidentPage(modifier) {
+    HabitatScaffold(
+        title = "Inicio",
+        selectedDestination = HabitatDestination.HOME,
+        onDestinationClick = onDestinationClick
+    ) { innerPadding ->
+
+        ResidentPage(
+            modifier = modifier.padding(innerPadding)
+        ) {
         ResidentTitle(
             text = "${state.greeting}, ${state.userName}",
             subtitle = state.residence
         )
 
-        // Acceso de contenido; no es una barra superior.
+
         TextButton(onClick = onProfile) {
             Text("Mi perfil")
         }
@@ -333,5 +347,28 @@ fun DashboardScreen(
                 }
             }
         }
+    }
+}}
+
+@Preview(
+    name = "Dashboard",
+    showBackground = true,
+    showSystemUi = true,
+    device = "spec:width=411dp,height=891dp,dpi=420"
+)
+@Composable
+private fun DashboardScreenPreview() {
+    HabitatPlusTheme {
+        DashboardScreen(
+            state = DashboardState(),
+            onIntent = {},
+            onAnnouncements = {},
+            onAnnouncement = {},
+            onParking = {},
+            onAreas = {},
+            onReports = {},
+            onProfile = {},
+            onDestinationClick = {}
+        )
     }
 }

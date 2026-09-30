@@ -12,6 +12,7 @@ fun HabitatScaffold(
     selectedDestination: HabitatDestination,
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
+    onDestinationClick: (HabitatDestination) -> Unit = {},
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
@@ -34,7 +35,8 @@ fun HabitatScaffold(
 
         bottomBar = {
             HabitatBottomBar(
-                selectedDestination = selectedDestination
+                selectedDestination = selectedDestination,
+                onDestinationClick = onDestinationClick
             )
         }
     ) { innerPadding ->

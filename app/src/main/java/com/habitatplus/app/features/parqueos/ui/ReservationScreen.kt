@@ -21,12 +21,17 @@ import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.*
 
 @Composable
-fun ReservationScreen() {
+fun ReservationScreen(
+    onBackClick: () -> Unit = {},
+    onDestinationClick: (HabitatDestination) -> Unit = {}
+) {
 
     HabitatScaffold(
         title = "Reservar Parqueo",
         selectedDestination = HabitatDestination.PARKING,
-        showBackButton = true
+        showBackButton = true,
+        onBackClick = onBackClick,
+        onDestinationClick = onDestinationClick
     ) { innerPadding ->
 
         Column(
