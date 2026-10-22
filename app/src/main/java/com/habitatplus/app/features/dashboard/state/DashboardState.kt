@@ -2,6 +2,7 @@ package com.habitatplus.app.features.dashboard.state
 
 import com.habitatplus.app.features.dashboard.model.DashboardAnnouncement
 import com.habitatplus.app.features.dashboard.model.DashboardMaintenance
+import com.habitatplus.app.features.dashboard.model.DashboardNavigation
 import com.habitatplus.app.features.dashboard.model.DashboardParking
 import com.habitatplus.app.features.dashboard.model.DashboardReport
 import com.habitatplus.app.features.dashboard.model.DashboardReservation
@@ -19,5 +20,7 @@ data class DashboardState(
     val totalVisitorSpaces: Int = 0,
     val reservation: DashboardReservation? = null,
     val reports: List<DashboardReport> = emptyList(),
-    val maintenance: DashboardMaintenance? = null
+    val maintenance: DashboardMaintenance? = null,
+    val lastUpdated: String = "",
+    val pendingNavigation: DashboardNavigation? = null
 )
