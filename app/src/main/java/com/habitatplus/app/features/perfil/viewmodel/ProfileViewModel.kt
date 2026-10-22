@@ -1,24 +1,35 @@
 package com.habitatplus.app.features.perfil.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.habitatplus.app.core.data.FakeResidentRepository
+import com.habitatplus.app.core.data.Resident
+import com.habitatplus.app.core.data.ResidentRepository
 import com.habitatplus.app.features.perfil.intent.ProfileIntent
 import com.habitatplus.app.features.perfil.state.ProfileState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class ProfileViewModel : ViewModel() {
 
-    private val _state = MutableStateFlow(ProfileState())
+    private val repository: ResidentRepository = FakeResidentRepository
 
+    private val _state = MutableStateFlow(ProfileState())
     val state: StateFlow<ProfileState> = _state.asStateFlow()
 
-    private var profileLoaded = false
-
     init {
-        onIntent(ProfileIntent.Load)
+        loadProfile()
+
+        viewModelScope.launch {
+            repository.resident.collect { resident ->
+                showResident(resident)
+            }
+        }
     }
 
     fun onIntent(intent: ProfileIntent) {
@@ -26,37 +37,37 @@ class ProfileViewModel : ViewModel() {
             ProfileIntent.Load -> loadProfile()
 
             ProfileIntent.ShowResidence -> {
-                _state.update {
-                    it.copy(showResidence = true)
-                }
+                _state.update { it.copy(showResidence = true) }
             }
 
             ProfileIntent.DismissResidence -> {
-                _state.update {
-                    it.copy(showResidence = false)
-                }
+                _state.update { it.copy(showResidence = false) }
             }
 
             ProfileIntent.StartEditing -> startEditing()
 
             is ProfileIntent.ChangeName -> {
-                if (_state.value.isEditing) {
-                    _state.update {
-                        it.copy(
+                _state.update { current ->
+                    if (current.isEditing) {
+                        current.copy(
                             draftName = intent.value,
                             nameError = null
                         )
+                    } else {
+                        current
                     }
                 }
             }
 
             is ProfileIntent.ChangePhone -> {
-                if (_state.value.isEditing) {
-                    _state.update {
-                        it.copy(
+                _state.update { current ->
+                    if (current.isEditing) {
+                        current.copy(
                             draftPhone = intent.value,
                             phoneError = null
                         )
+                    } else {
+                        current
                     }
                 }
             }
@@ -66,83 +77,73 @@ class ProfileViewModel : ViewModel() {
             ProfileIntent.CancelEditing -> cancelEditing()
 
             ProfileIntent.DismissSuccess -> {
-                _state.update {
-                    it.copy(successMessage = null)
-                }
+                _state.update { it.copy(successMessage = null) }
             }
 
             ProfileIntent.OpenSettings -> {
-                _state.update {
-                    it.copy(settingsRequested = true)
-                }
+                _state.update { it.copy(settingsRequested = true) }
             }
 
             ProfileIntent.SettingsNavigationHandled -> {
-                _state.update {
-                    it.copy(settingsRequested = false)
-                }
+                _state.update { it.copy(settingsRequested = false) }
             }
         }
     }
 
     private fun loadProfile() {
-        // Evita sobrescribir una edición al volver a solicitar Load.
-        if (profileLoaded) {
-            return
+        showResident(repository.resident.value)
+    }
+
+    private fun showResident(resident: Resident) {
+        _state.update { current ->
+            current.copy(
+                isLoading = false,
+                error = null,
+                isOffline = false,
+                name = resident.name,
+                initials = buildInitials(resident.name),
+                role = resident.role,
+                condominium = resident.condominium,
+                tower = resident.tower,
+                apartment = resident.apartment,
+                email = resident.email,
+                phone = resident.phone,
+                verified = resident.verified
+            )
         }
-
-        // Datos fake para esta entrega.
-        _state.value = ProfileState(
-            isLoading = false,
-            name = "Kenett Ortega",
-            initials = "KO",
-            role = "Residente",
-            condominium = "Condominio Las Acacias",
-            tower = "Torre A",
-            apartment = "A-203",
-            email = "kenett@example.com",
-            phone = "+502 5555-0100",
-            verified = true
-        )
-
-        profileLoaded = true
     }
 
     private fun startEditing() {
-        val current = _state.value
-
-        if (current.isLoading || current.error != null) {
-            return
-        }
-
-        _state.update {
-            it.copy(
-                isEditing = true,
-                draftName = it.name,
-                draftPhone = it.phone,
-                nameError = null,
-                phoneError = null,
-                successMessage = null,
-                showResidence = false
-            )
+        _state.update { current ->
+            if (current.isLoading || current.error != null || current.isEditing) {
+                current
+            } else {
+                current.copy(
+                    isEditing = true,
+                    draftName = current.name,
+                    draftPhone = current.phone,
+                    nameError = null,
+                    phoneError = null,
+                    successMessage = null,
+                    showResidence = false
+                )
+            }
         }
     }
 
     private fun saveChanges() {
         val current = _state.value
 
-        if (!current.isEditing) {
-            return
-        }
+        if (!current.isEditing) return
 
-        val normalizedName = current.draftName
+        val name = current.draftName
             .trim()
             .replace(Regex("\\s+"), " ")
 
-        val normalizedPhone = current.draftPhone.trim()
+        val phone = current.draftPhone.trim()
 
-        val nameError = validateName(normalizedName)
-        val phoneError = validatePhone(normalizedPhone)
+        val nameError = validateName(name)
+        val phoneError = validatePhone(phone)
 
         if (nameError != null || phoneError != null) {
             _state.update {
@@ -154,18 +155,18 @@ class ProfileViewModel : ViewModel() {
             return
         }
 
+        repository.updateContact(name = name, phone = phone)
+
+        // Refleja el resultado inmediatamente en Perfil.
+        showResident(repository.resident.value)
+
         _state.update {
             it.copy(
-                name = normalizedName,
-                initials = buildInitials(normalizedName),
-                phone = normalizedPhone,
-
                 isEditing = false,
                 draftName = "",
                 draftPhone = "",
                 nameError = null,
                 phoneError = null,
-
                 successMessage = "Los cambios de tu perfil se guardaron."
             )
         }
@@ -202,10 +203,7 @@ class ProfileViewModel : ViewModel() {
     }
 
     private fun validatePhone(phone: String): String? {
-        // El teléfono es opcional según la especificación.
-        if (phone.isBlank()) {
-            return null
-        }
+        if (phone.isBlank()) return null
 
         val allowedFormat = Regex("^\\+?[0-9() -]+$")
 
