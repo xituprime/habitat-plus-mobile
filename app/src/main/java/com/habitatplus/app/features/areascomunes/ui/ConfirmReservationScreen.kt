@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.areascomunes.ui
 
 import androidx.compose.foundation.Image
@@ -31,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.habitatplus.app.R
 import com.habitatplus.app.features.areascomunes.intent.CommonAreaIntent
+import com.habitatplus.app.features.areascomunes.model.CommonArea
+import com.habitatplus.app.features.areascomunes.model.CommonAreaStatus
 import com.habitatplus.app.features.areascomunes.state.CommonAreaState
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
@@ -40,6 +43,34 @@ fun ConfirmReservationScreen(
     onIntent: (CommonAreaIntent) -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
+
+    val selectedArea = state.areas.firstOrNull {
+        it.id == state.selectedAreaId
+    }
+
+    val areaName = selectedArea?.name ?: "Área común"
+
+    val areaImage = when (state.selectedAreaId) {
+        "social-room" -> R.drawable.area_social_room
+        "court" -> R.drawable.area_court
+        "pool" -> R.drawable.area_pool
+        "grill" -> R.drawable.area_grill
+        else -> R.drawable.area_court
+    }
+
+    val selectedTime = state.selectedTime
+
+    val selectedSlot = state.timeSlots.firstOrNull {
+        it.startTime == selectedTime
+    }
+
+    val canConfirm =
+        !state.isReservationConfirmed &&
+                selectedArea != null &&
+                state.selectedDate != null &&
+                selectedTime != null &&
+                selectedSlot?.status ==
+                com.habitatplus.app.features.areascomunes.model.TimeSlotStatus.AVAILABLE
 
     Column(
         modifier = Modifier
@@ -117,13 +148,14 @@ fun ConfirmReservationScreen(
             modifier = Modifier.height(12.dp)
         )
 
-        // Imagen de la cancha
+        // Imagen del área seleccionada.
+        // Mantiene el mismo tamaño del diseño original.
 
         Image(
             painter = painterResource(
-                id = R.drawable.area_court
+                id = areaImage
             ),
-            contentDescription = "Cancha polideportiva",
+            contentDescription = "Fotografía de $areaName",
             modifier = Modifier
                 .fillMaxWidth()
                 .height(125.dp)
@@ -159,7 +191,7 @@ fun ConfirmReservationScreen(
                 )
 
                 Text(
-                    text = "Cancha Polideportiva",
+                    text = areaName,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimary
@@ -190,7 +222,7 @@ fun ConfirmReservationScreen(
 
                 ReservationInfoRow(
                     label = "Área",
-                    value = "Cancha"
+                    value = areaName
                 )
 
                 Spacer(
@@ -200,7 +232,7 @@ fun ConfirmReservationScreen(
                 ReservationInfoRow(
                     label = "Fecha",
                     value = state.selectedDate
-                        ?: "15 de Septiembre"
+                        ?: "Sin fecha seleccionada"
                 )
 
                 Spacer(
@@ -209,8 +241,20 @@ fun ConfirmReservationScreen(
 
                 ReservationInfoRow(
                     label = "Horario",
-                    value = "${state.selectedTime ?: "18:00"} hrs",
-                    secondaryValue = "Bloque nocturno"
+                    value = if (selectedTime != null) {
+                        "$selectedTime hrs"
+                    } else {
+                        "Sin horario seleccionado"
+                    },
+                    secondaryValue = if (selectedTime != null) {
+                        if (selectedTime >= "18:00") {
+                            "Bloque nocturno"
+                        } else {
+                            "Bloque diurno"
+                        }
+                    } else {
+                        null
+                    }
                 )
 
                 Spacer(
@@ -220,19 +264,22 @@ fun ConfirmReservationScreen(
                 ReservationInfoRow(
                     label = "Duración",
                     value = "1 hora fija",
-                    secondaryValue =
-                        "(${state.selectedTime ?: "18:00"} - ${
-                            endTimeFor(
-                                state.selectedTime ?: "18:00"
-                            )
+                    secondaryValue = if (selectedTime != null) {
+                        "($selectedTime - ${
+                            selectedSlot?.endTime
+                                ?: endTimeFor(selectedTime)
                         } hrs)"
+                    } else {
+                        "Pendiente de selección"
+                    }
                 )
 
                 Spacer(
                     modifier = Modifier.height(14.dp)
                 )
 
-                // Residente titular
+                // Residente titular.
+                // Datos pintados mientras Axel integra la BD.
 
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -388,6 +435,7 @@ fun ConfirmReservationScreen(
                     CommonAreaIntent.ConfirmReservation
                 )
             },
+            enabled = canConfirm,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp),
@@ -398,10 +446,53 @@ fun ConfirmReservationScreen(
         ) {
 
             Text(
-                text = "Confirmar reserva",
+                text = if (state.isReservationConfirmed) {
+                    "Reserva confirmada"
+                } else {
+                    "Confirmar reserva"
+                },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
             )
+        }
+
+        // Confirmación visible después del evento MVI
+
+        if (state.isReservationConfirmed) {
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+
+                    Text(
+                        text = "✓ Reserva realizada exitosamente",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(4.dp)
+                    )
+
+                    Text(
+                        text = "Tu horario quedó registrado y ya no estará disponible para otra reserva durante esta sesión.",
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         Spacer(
@@ -467,6 +558,37 @@ private fun endTimeFor(
     }
 }
 
+private fun reservationPreviewState(): CommonAreaState {
+
+    val area = CommonArea(
+        id = "court",
+        name = "Cancha",
+        description = "Cancha polideportiva sintética iluminada, disponible por turnos de 1 hora.",
+        locationType = "Exterior",
+        availabilityText = "Turnos de 1 hora",
+        features = listOf(
+            "Iluminación LED",
+            "Césped sintético"
+        ),
+        status = CommonAreaStatus.AVAILABLE
+    )
+
+    return CommonAreaState(
+        areas = listOf(area),
+        selectedAreaId = "court",
+        selectedDate = "15 de Septiembre",
+        selectedTime = "18:00",
+        timeSlots = listOf(
+            com.habitatplus.app.features.areascomunes.model.TimeSlot(
+                startTime = "18:00",
+                endTime = "19:00",
+                description = "Turno vespertino • Con reflectores",
+                status = com.habitatplus.app.features.areascomunes.model.TimeSlotStatus.AVAILABLE
+            )
+        )
+    )
+}
+
 @Preview(
     showBackground = true,
     showSystemUi = true,
@@ -478,11 +600,7 @@ private fun ConfirmReservationPhonePreview() {
     HabitatPlusTheme {
 
         ConfirmReservationScreen(
-            state = CommonAreaState(
-                selectedAreaId = "court",
-                selectedDate = "15 de Septiembre",
-                selectedTime = "18:00"
-            )
+            state = reservationPreviewState()
         )
     }
 }
@@ -500,11 +618,7 @@ private fun ConfirmReservationFullPreview() {
     HabitatPlusTheme {
 
         ConfirmReservationScreen(
-            state = CommonAreaState(
-                selectedAreaId = "court",
-                selectedDate = "15 de Septiembre",
-                selectedTime = "18:00"
-            )
+            state = reservationPreviewState()
         )
     }
 }
