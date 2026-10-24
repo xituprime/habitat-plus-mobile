@@ -51,7 +51,7 @@ import com.habitatplus.app.features.reportes.viewmodel.ReportViewModel
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.theme.ResidentTheme
 import kotlinx.coroutines.launch
-
+import com.habitatplus.app.features.anuncios.ui.AnnouncementDetailRoute
 @Composable
 fun NavGraph(
     onSignOut: (() -> Unit)? = null
@@ -265,7 +265,9 @@ fun NavGraph(
                                 navController.navigate(
                                     Routes.REPORT_DETAIL
                                 )
-                            }
+                            },
+
+                            onDestinationClick = navigateToDestination
                         )
                     }
 
@@ -385,31 +387,12 @@ fun NavGraph(
                         )
                     ) { entry ->
 
-                        val announcementId =
-                            entry.arguments
-                                ?.getString("announcementId")
+                        val announcementId = entry.arguments
+                            ?.getString("announcementId")
 
-                        val announcement =
-                            announcementsState
-                                .announcements
-                                .firstOrNull {
-                                    it.id == announcementId
-                                }
-
-                        AnnouncementDetailScreen(
-                            announcement = announcement,
-                            isLoading = announcementsState.isLoading,
-                            error = announcementsState.error,
-                            isOffline = announcementsState.isOffline,
-
-                            onRetry = {
-                                announcementsViewModel.onIntent(
-                                    AnnouncementsIntent.Refresh
-                                )
-                            },
-
+                        AnnouncementDetailRoute(
+                            announcementId = announcementId,
                             onBack = {
-
                                 val returnedToList =
                                     navController.popBackStack(
                                         ResidentRoutes.ANNOUNCEMENTS,
@@ -417,14 +400,10 @@ fun NavGraph(
                                     )
 
                                 if (!returnedToList) {
-
                                     navController.navigate(
                                         ResidentRoutes.ANNOUNCEMENTS
                                     ) {
-
-                                        popUpTo(
-                                            ResidentRoutes.HOME
-                                        ) {
+                                        popUpTo(ResidentRoutes.HOME) {
                                             inclusive = false
                                         }
 
