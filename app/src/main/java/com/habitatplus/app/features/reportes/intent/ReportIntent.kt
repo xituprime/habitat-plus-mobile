@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.reportes.intent
 
 import com.habitatplus.app.features.reportes.model.ReportCategory
@@ -23,5 +24,11 @@ sealed interface ReportIntent {
         val description: String
     ) : ReportIntent
 
+    data class SelectReport(
+        val reportId: String
+    ) : ReportIntent
+
     data object SubmitReport : ReportIntent
+
+    data object ClearReportSubmission : ReportIntent
 }

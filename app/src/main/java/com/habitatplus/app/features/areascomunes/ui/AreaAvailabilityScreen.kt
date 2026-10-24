@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.areascomunes.ui
 
 import androidx.compose.foundation.background
@@ -29,6 +30,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.habitatplus.app.features.areascomunes.intent.CommonAreaIntent
+import com.habitatplus.app.features.areascomunes.model.CommonArea
+import com.habitatplus.app.features.areascomunes.model.CommonAreaStatus
 import com.habitatplus.app.features.areascomunes.model.TimeSlot
 import com.habitatplus.app.features.areascomunes.model.TimeSlotStatus
 import com.habitatplus.app.features.areascomunes.state.CommonAreaState
@@ -41,15 +44,25 @@ fun AreaAvailabilityScreen(
     onContinueClick: () -> Unit = {}
 ) {
 
+    val selectedArea = state.areas.firstOrNull {
+        it.id == state.selectedAreaId
+    }
+
+    val areaName = selectedArea?.name ?: "Área común"
+
+    val areaInformation = when (state.selectedAreaId) {
+        "court" -> "Iluminación incluida"
+        "social-room" -> "Espacio climatizado"
+        "pool" -> "Normas de higiene vigentes"
+        "grill" -> "Parrilla y mesas disponibles"
+        else -> "Reserva comunitaria"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                MaterialTheme.colorScheme.background
-            )
-            .verticalScroll(
-                rememberScrollState()
-            )
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
             .padding(
                 horizontal = 16.dp,
                 vertical = 8.dp
@@ -71,13 +84,10 @@ fun AreaAvailabilityScreen(
         ) {
 
             Text(
-                text = "Disponibilidad de\nCancha",
+                text = "Disponibilidad de\n$areaName",
                 fontSize = 22.sp,
                 lineHeight = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
 
@@ -85,9 +95,8 @@ fun AreaAvailabilityScreen(
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
-
                 Text(
-                    text = "Cancha",
+                    text = areaName,
                     modifier = Modifier.padding(
                         horizontal = 12.dp,
                         vertical = 6.dp
@@ -99,9 +108,7 @@ fun AreaAvailabilityScreen(
             }
         }
 
-        Spacer(
-            modifier = Modifier.height(14.dp)
-        )
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Mes
 
@@ -109,22 +116,18 @@ fun AreaAvailabilityScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Text(
                 text = "Septiembre 2024",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
+            Spacer(modifier = Modifier.weight(1f))
 
             Surface(
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-
                 Text(
                     text = "Semana 38",
                     modifier = Modifier.padding(
@@ -137,30 +140,24 @@ fun AreaAvailabilityScreen(
             }
         }
 
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Selector de días
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(
-                    rememberScrollState()
-                ),
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
 
             DateOption(
                 day = "Mié",
                 number = "13",
-                selected = false,
+                selected = state.selectedDate == "13 de Septiembre",
                 onClick = {
                     onIntent(
-                        CommonAreaIntent.SelectDate(
-                            "13 de Septiembre"
-                        )
+                        CommonAreaIntent.SelectDate("13 de Septiembre")
                     )
                 }
             )
@@ -168,12 +165,10 @@ fun AreaAvailabilityScreen(
             DateOption(
                 day = "Jue",
                 number = "14",
-                selected = false,
+                selected = state.selectedDate == "14 de Septiembre",
                 onClick = {
                     onIntent(
-                        CommonAreaIntent.SelectDate(
-                            "14 de Septiembre"
-                        )
+                        CommonAreaIntent.SelectDate("14 de Septiembre")
                     )
                 }
             )
@@ -181,13 +176,10 @@ fun AreaAvailabilityScreen(
             DateOption(
                 day = "Vie",
                 number = "15",
-                selected =
-                    state.selectedDate == "15 de Septiembre",
+                selected = state.selectedDate == "15 de Septiembre",
                 onClick = {
                     onIntent(
-                        CommonAreaIntent.SelectDate(
-                            "15 de Septiembre"
-                        )
+                        CommonAreaIntent.SelectDate("15 de Septiembre")
                     )
                 }
             )
@@ -195,12 +187,10 @@ fun AreaAvailabilityScreen(
             DateOption(
                 day = "Sáb",
                 number = "16",
-                selected = false,
+                selected = state.selectedDate == "16 de Septiembre",
                 onClick = {
                     onIntent(
-                        CommonAreaIntent.SelectDate(
-                            "16 de Septiembre"
-                        )
+                        CommonAreaIntent.SelectDate("16 de Septiembre")
                     )
                 }
             )
@@ -208,20 +198,16 @@ fun AreaAvailabilityScreen(
             DateOption(
                 day = "Dom",
                 number = "17",
-                selected = false,
+                selected = state.selectedDate == "17 de Septiembre",
                 onClick = {
                     onIntent(
-                        CommonAreaIntent.SelectDate(
-                            "17 de Septiembre"
-                        )
+                        CommonAreaIntent.SelectDate("17 de Septiembre")
                     )
                 }
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Agenda
 
@@ -229,13 +215,11 @@ fun AreaAvailabilityScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-
                 Text(
-                    text = "Agenda diaria de Cancha",
+                    text = "Agenda diaria de $areaName",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -247,7 +231,7 @@ fun AreaAvailabilityScreen(
                 )
 
                 Text(
-                    text = "Viernes, 15 de Septiembre • Iluminación incluida",
+                    text = "${state.selectedDate ?: "Selecciona una fecha"} • $areaInformation",
                     fontSize = 9.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -257,7 +241,6 @@ fun AreaAvailabilityScreen(
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
-
                 Text(
                     text = "60 min",
                     modifier = Modifier.padding(
@@ -271,9 +254,7 @@ fun AreaAvailabilityScreen(
             }
         }
 
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Horarios
 
@@ -281,24 +262,17 @@ fun AreaAvailabilityScreen(
 
             TimeSlotCard(
                 slot = slot,
-                selected =
-                    state.selectedTime == slot.startTime,
+                selected = state.selectedTime == slot.startTime,
                 onClick = {
-
                     if (slot.status == TimeSlotStatus.AVAILABLE) {
-
                         onIntent(
-                            CommonAreaIntent.SelectTime(
-                                slot.startTime
-                            )
+                            CommonAreaIntent.SelectTime(slot.startTime)
                         )
                     }
                 }
             )
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         // Información
@@ -308,7 +282,6 @@ fun AreaAvailabilityScreen(
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
-
             Text(
                 text = "Por reglamento condominal, la reserva es individual de 1 hora exacta sin costo adicional.",
                 modifier = Modifier.padding(12.dp),
@@ -318,15 +291,16 @@ fun AreaAvailabilityScreen(
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Continuar
 
         Button(
             onClick = onContinueClick,
-            enabled = state.selectedTime != null,
+            enabled =
+                state.selectedAreaId != null &&
+                        state.selectedDate != null &&
+                        state.selectedTime != null,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp),
@@ -335,7 +309,6 @@ fun AreaAvailabilityScreen(
                 containerColor = MaterialTheme.colorScheme.primary
             )
         ) {
-
             Text(
                 text = if (state.selectedTime != null) {
                     "Continuar con horario ${state.selectedTime}"
@@ -347,9 +320,7 @@ fun AreaAvailabilityScreen(
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -362,10 +333,7 @@ private fun DateOption(
 ) {
 
     Surface(
-        modifier = Modifier
-            .clickable {
-                onClick()
-            },
+        modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         color = if (selected) {
             MaterialTheme.colorScheme.primary
@@ -373,7 +341,6 @@ private fun DateOption(
             MaterialTheme.colorScheme.surfaceVariant
         }
     ) {
-
         Column(
             modifier = Modifier.padding(
                 horizontal = 16.dp,
@@ -381,7 +348,6 @@ private fun DateOption(
             ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
             Text(
                 text = day,
                 fontSize = 9.sp,
@@ -419,9 +385,7 @@ private fun TimeSlotCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(
-                enabled = isAvailable
-            ) {
+            .clickable(enabled = isAvailable) {
                 onClick()
             },
         shape = RoundedCornerShape(12.dp),
@@ -436,7 +400,6 @@ private fun TimeSlotCard(
             defaultElevation = 2.dp
         )
     ) {
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -454,7 +417,6 @@ private fun TimeSlotCard(
                     MaterialTheme.colorScheme.surfaceVariant
                 }
             ) {
-
                 Text(
                     text = slot.startTime,
                     modifier = Modifier.padding(
@@ -471,16 +433,13 @@ private fun TimeSlotCard(
                 )
             }
 
-            Spacer(
-                modifier = Modifier.padding(4.dp)
-            )
+            Spacer(modifier = Modifier.padding(4.dp))
 
             // Información
 
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-
                 Text(
                     text = "${slot.startTime} - ${slot.endTime}",
                     fontSize = 12.sp,
@@ -514,7 +473,6 @@ private fun TimeSlotCard(
             Surface(
                 shape = RoundedCornerShape(50),
                 color = when {
-
                     selected ->
                         MaterialTheme.colorScheme.primary
 
@@ -525,18 +483,11 @@ private fun TimeSlotCard(
                         MaterialTheme.colorScheme.surfaceVariant
                 }
             ) {
-
                 Text(
                     text = when {
-
-                        selected ->
-                            "Elegido"
-
-                        isAvailable ->
-                            "Seleccionar"
-
-                        else ->
-                            "No disponible"
+                        selected -> "Elegido"
+                        isAvailable -> "Seleccionar"
+                        else -> "No disponible"
                     },
                     modifier = Modifier.padding(
                         horizontal = 10.dp,
@@ -545,7 +496,6 @@ private fun TimeSlotCard(
                     fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = when {
-
                         selected ->
                             MaterialTheme.colorScheme.onPrimary
 
@@ -568,9 +518,7 @@ private fun TimeSlotCard(
 )
 @Composable
 private fun AreaAvailabilityPhonePreview() {
-
     HabitatPlusTheme {
-
         AreaAvailabilityScreen(
             state = availabilityPreviewState()
         )
@@ -586,9 +534,7 @@ private fun AreaAvailabilityPhonePreview() {
 )
 @Composable
 private fun AreaAvailabilityFullPreview() {
-
     HabitatPlusTheme {
-
         AreaAvailabilityScreen(
             state = availabilityPreviewState()
         )
@@ -597,41 +543,46 @@ private fun AreaAvailabilityFullPreview() {
 
 private fun availabilityPreviewState(): CommonAreaState {
 
+    val area = CommonArea(
+        id = "court",
+        name = "Cancha",
+        description = "Cancha polideportiva sintética iluminada, disponible por turnos de 1 hora.",
+        locationType = "Exterior",
+        availabilityText = "Turnos de 1 hora",
+        features = listOf("Iluminación LED", "Césped sintético"),
+        status = CommonAreaStatus.AVAILABLE
+    )
+
     return CommonAreaState(
+        areas = listOf(area),
         selectedAreaId = "court",
         selectedDate = "15 de Septiembre",
         selectedTime = "18:00",
-
         timeSlots = listOf(
-
             TimeSlot(
                 startTime = "09:00",
                 endTime = "10:00",
                 description = "Turno matutino • Cancha de tenis",
                 status = TimeSlotStatus.AVAILABLE
             ),
-
             TimeSlot(
                 startTime = "10:00",
                 endTime = "11:00",
                 description = "Ocupado por depto B-104",
                 status = TimeSlotStatus.RESERVED
             ),
-
             TimeSlot(
                 startTime = "11:00",
                 endTime = "12:00",
                 description = "Turno mediodía",
                 status = TimeSlotStatus.AVAILABLE
             ),
-
             TimeSlot(
                 startTime = "12:00",
                 endTime = "13:00",
                 description = "Turno soleado",
                 status = TimeSlotStatus.AVAILABLE
             ),
-
             TimeSlot(
                 startTime = "18:00",
                 endTime = "19:00",

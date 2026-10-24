@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.reportes.ui
 
 import androidx.compose.foundation.background
@@ -21,6 +22,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,8 +39,15 @@ import com.habitatplus.app.ui.theme.HabitatPlusTheme
 fun CreateReportScreen(
     state: ReportState,
     onIntent: (ReportIntent) -> Unit = {},
-    onAddPhotoClick: () -> Unit = {}
+    onAddPhotoClick: () -> Unit = {},
+    onReportCreated: () -> Unit = {}
 ) {
+
+    LaunchedEffect(state.reportSubmitted) {
+        if (state.reportSubmitted) {
+            onReportCreated()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -426,4 +435,4 @@ private fun CreateReportScreenPreview() {
             state = ReportState()
         )
     }
-}
+} 
