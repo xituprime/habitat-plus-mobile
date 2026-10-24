@@ -1,8 +1,11 @@
+
 package com.habitatplus.app.features.reportes.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
@@ -50,9 +53,7 @@ fun ReportsScreen(
     onReportClick: (Report) -> Unit = {},
     onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
-
     val filteredReports = state.reports.filter { report ->
-
         val category = categoryText(report.category)
 
         val matchesSearch =
@@ -83,9 +84,7 @@ fun ReportsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(
-                    MaterialTheme.colorScheme.background
-                )
+                .background(MaterialTheme.colorScheme.background)
                 .padding(
                     horizontal = 16.dp,
                     vertical = 8.dp
@@ -100,10 +99,7 @@ fun ReportsScreen(
                 Text(
                     text = "Reportes de Incidencias",
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
 
@@ -121,16 +117,12 @@ fun ReportsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
+            Spacer(modifier = Modifier.height(10.dp))
 
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = {
-                    onIntent(
-                        ReportIntent.SearchReports(it)
-                    )
+                    onIntent(ReportIntent.SearchReports(it))
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -146,44 +138,32 @@ fun ReportsScreen(
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor =
-                        MaterialTheme.colorScheme.primary,
-                    unfocusedContainerColor =
-                        MaterialTheme.colorScheme.surfaceVariant,
-                    focusedContainerColor =
-                        MaterialTheme.colorScheme.surfaceVariant
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(
-                        rememberScrollState()
-                    ),
-                horizontalArrangement =
-                    Arrangement.spacedBy(6.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
 
                 ReportFilterChip(
                     text = "Todos",
                     selected = state.selectedStatus == null,
                     onClick = {
-                        onIntent(
-                            ReportIntent.FilterByStatus(null)
-                        )
+                        onIntent(ReportIntent.FilterByStatus(null))
                     }
                 )
 
                 ReportFilterChip(
                     text = "Pendientes",
-                    selected =
-                        state.selectedStatus ==
-                                ReportStatus.PENDING,
+                    selected = state.selectedStatus == ReportStatus.PENDING,
                     onClick = {
                         onIntent(
                             ReportIntent.FilterByStatus(
@@ -195,9 +175,7 @@ fun ReportsScreen(
 
                 ReportFilterChip(
                     text = "En proceso",
-                    selected =
-                        state.selectedStatus ==
-                                ReportStatus.IN_PROGRESS,
+                    selected = state.selectedStatus == ReportStatus.IN_PROGRESS,
                     onClick = {
                         onIntent(
                             ReportIntent.FilterByStatus(
@@ -209,9 +187,7 @@ fun ReportsScreen(
 
                 ReportFilterChip(
                     text = "Resueltos",
-                    selected =
-                        state.selectedStatus ==
-                                ReportStatus.RESOLVED,
+                    selected = state.selectedStatus == ReportStatus.RESOLVED,
                     onClick = {
                         onIntent(
                             ReportIntent.FilterByStatus(
@@ -222,35 +198,72 @@ fun ReportsScreen(
                 )
             }
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement =
-                    Arrangement.spacedBy(8.dp)
-            ) {
+            when {
+                state.isLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
 
-                items(
-                    items = filteredReports,
-                    key = { it.id }
-                ) { report ->
+                state.errorMessage != null -> {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = state.errorMessage,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
 
-                    ReportCard(
-                        report = report,
-                        onClick = {
-                            onReportClick(report)
+                filteredReports.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No se encontraron reportes",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(
+                            items = filteredReports,
+                            key = { it.id }
+                        ) { report ->
+
+                            ReportCard(
+                                report = report,
+                                onClick = {
+                                    onReportClick(report)
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -261,11 +274,9 @@ fun ReportsScreen(
                     onClick = onNewReportClick,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor =
-                            MaterialTheme.colorScheme.primary
+                        containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
-
                     Text(
                         text = "+  Nuevo Reporte",
                         fontSize = 12.sp,
@@ -283,7 +294,6 @@ private fun ReportFilterChip(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-
     FilterChip(
         selected = selected,
         onClick = onClick,
@@ -295,10 +305,8 @@ private fun ReportFilterChip(
         },
         shape = RoundedCornerShape(50),
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor =
-                MaterialTheme.colorScheme.primary,
-            selectedLabelColor =
-                MaterialTheme.colorScheme.onPrimary
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
         )
     )
 }
@@ -308,14 +316,12 @@ private fun ReportCard(
     report: Report,
     onClick: () -> Unit
 ) {
-
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
@@ -344,19 +350,14 @@ private fun ReportCard(
                     Text(
                         text = "Ref: #${report.id}",
                         fontSize = 9.sp,
-                        color =
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                ReportStatusBadge(
-                    status = report.status
-                )
+                ReportStatusBadge(status = report.status)
             }
 
-            Spacer(
-                modifier = Modifier.height(7.dp)
-            )
+            Spacer(modifier = Modifier.height(7.dp))
 
             Text(
                 text = visualReportTitle(report),
@@ -366,9 +367,7 @@ private fun ReportCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(
-                modifier = Modifier.height(4.dp)
-            )
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
                 text = report.description,
@@ -376,13 +375,10 @@ private fun ReportCard(
                 lineHeight = 13.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                color =
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -392,20 +388,16 @@ private fun ReportCard(
                 Text(
                     text = report.date,
                     fontSize = 10.sp,
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(
-                    modifier = Modifier.weight(1f)
-                )
+                Spacer(modifier = Modifier.weight(1f))
 
                 Text(
                     text = statusActionText(report.status),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color =
-                        MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -416,7 +408,6 @@ private fun ReportCard(
 private fun ReportStatusBadge(
     status: ReportStatus
 ) {
-
     val text = when (status) {
         ReportStatus.PENDING -> "Pendiente"
         ReportStatus.IN_PROGRESS -> "En proceso"
@@ -431,12 +422,8 @@ private fun ReportStatusBadge(
     )
 }
 
-private fun visualReportTitle(
-    report: Report
-): String {
-
+private fun visualReportTitle(report: Report): String {
     return when (report.id) {
-
         "REP-2041" ->
             "Falla en luminaria de pasillo Torre A"
 
@@ -451,10 +438,7 @@ private fun visualReportTitle(
     }
 }
 
-private fun statusActionText(
-    status: ReportStatus
-): String {
-
+private fun statusActionText(status: ReportStatus): String {
     return when (status) {
         ReportStatus.PENDING -> "Ver detalle >"
         ReportStatus.IN_PROGRESS -> "Técnico asignado >"
@@ -462,10 +446,7 @@ private fun statusActionText(
     }
 }
 
-private fun categoryText(
-    category: ReportCategory
-): String {
-
+private fun categoryText(category: ReportCategory): String {
     return when (category) {
         ReportCategory.LIGHTING -> "Iluminación"
         ReportCategory.WATER -> "Agua"
@@ -479,13 +460,11 @@ private fun categoryText(
     showBackground = true,
     showSystemUi = true,
     device = "spec:width=411dp,height=891dp,dpi=420",
-    name = "Reportes"
+    name = "Reportes - Lista"
 )
 @Composable
 private fun ReportsScreenPreview() {
-
     HabitatPlusTheme {
-
         ReportsScreen(
             state = ReportState(
                 reports = previewReports()
@@ -494,10 +473,49 @@ private fun ReportsScreenPreview() {
     }
 }
 
+@Preview(
+    showBackground = true,
+    name = "Reportes - Cargando"
+)
+@Composable
+private fun ReportsLoadingPreview() {
+    HabitatPlusTheme {
+        ReportsScreen(
+            state = ReportState(isLoading = true)
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    name = "Reportes - Vacío"
+)
+@Composable
+private fun ReportsEmptyPreview() {
+    HabitatPlusTheme {
+        ReportsScreen(
+            state = ReportState()
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    name = "Reportes - Error"
+)
+@Composable
+private fun ReportsErrorPreview() {
+    HabitatPlusTheme {
+        ReportsScreen(
+            state = ReportState(
+                errorMessage = "No se pudieron cargar los reportes."
+            )
+        )
+    }
+}
+
 private fun previewReports(): List<Report> {
-
     return listOf(
-
         Report(
             id = "REP-2041",
             category = ReportCategory.LIGHTING,
@@ -508,7 +526,6 @@ private fun previewReports(): List<Report> {
             status = ReportStatus.PENDING,
             hasPhoto = true
         ),
-
         Report(
             id = "REP-2038",
             category = ReportCategory.NOISE,
@@ -518,7 +535,6 @@ private fun previewReports(): List<Report> {
             lastUpdate = "13 Oct, 2024 • 09:20 AM",
             status = ReportStatus.IN_PROGRESS
         ),
-
         Report(
             id = "REP-2015",
             category = ReportCategory.WATER,
