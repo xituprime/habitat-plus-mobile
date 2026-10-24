@@ -378,25 +378,6 @@ fun NavGraph(
                         val announcementId =
                             entry.toRoute<AppRoute.AnnouncementDetail>().announcementId
 
-                        val announcement =
-                            announcementsState
-                                .announcements
-                                .firstOrNull {
-                                    it.id == announcementId
-                                }
-
-                        AnnouncementDetailScreen(
-                            announcement = announcement,
-                            isLoading = announcementsState.isLoading,
-                            error = announcementsState.error,
-                            isOffline = announcementsState.isOffline,
-
-                            onRetry = {
-                                announcementsViewModel.onIntent(
-                                    AnnouncementsIntent.Refresh
-                                )
-                            },
-
                         AnnouncementDetailRoute(
                             announcementId = announcementId,
                             onBack = {
