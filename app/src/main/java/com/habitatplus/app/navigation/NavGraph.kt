@@ -50,7 +50,7 @@ import com.habitatplus.app.features.reportes.viewmodel.ReportViewModel
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.theme.ResidentTheme
 import kotlinx.coroutines.launch
-
+import com.habitatplus.app.features.anuncios.ui.AnnouncementDetailRoute
 @Composable
 fun NavGraph(
     onSignOut: (() -> Unit)? = null
@@ -264,7 +264,9 @@ fun NavGraph(
                                 navController.navigate(
                                     AppRoute.ReportDetail
                                 )
-                            }
+                            },
+
+                            onDestinationClick = navigateToDestination
                         )
                     }
 
@@ -395,8 +397,9 @@ fun NavGraph(
                                 )
                             },
 
+                        AnnouncementDetailRoute(
+                            announcementId = announcementId,
                             onBack = {
-
                                 val returnedToList =
                                     navController.popBackStack(
                                         AppRoute.Announcements,
@@ -404,7 +407,6 @@ fun NavGraph(
                                     )
 
                                 if (!returnedToList) {
-
                                     navController.navigate(
                                         AppRoute.Announcements
                                     ) {

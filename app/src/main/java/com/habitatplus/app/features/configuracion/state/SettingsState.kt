@@ -15,5 +15,6 @@ enum class SettingsDialog {
 
 data class SettingsState(
     val theme: ThemePreference = ThemePreference.SYSTEM,
-    val dialog: SettingsDialog? = null
+    val dialog: SettingsDialog? = null,
+    val signOutRequested: Boolean = false
 )

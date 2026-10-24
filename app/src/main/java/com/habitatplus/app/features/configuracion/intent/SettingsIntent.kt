@@ -14,4 +14,8 @@ sealed interface SettingsIntent {
     data class SelectTheme(
         val theme: ThemePreference
     ) : SettingsIntent
+
+    data object ConfirmSignOut : SettingsIntent
+
+    data object SignOutHandled : SettingsIntent
 }
