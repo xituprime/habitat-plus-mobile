@@ -18,11 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.navigation.toRoute
 import com.habitatplus.app.core.components.AppScaffold
 import com.habitatplus.app.features.anuncios.intent.AnnouncementsIntent
 import com.habitatplus.app.features.anuncios.ui.AnnouncementDetailScreen
@@ -60,7 +59,7 @@ fun NavGraph(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // ViewModels
+
     val dashboardViewModel: DashboardViewModel = viewModel()
     val announcementsViewModel: AnnouncementsViewModel = viewModel()
     val profileViewModel: ProfileViewModel = viewModel()
@@ -76,7 +75,7 @@ fun NavGraph(
     val reportState by reportViewModel.state.collectAsState()
     val commonAreaState by commonAreaViewModel.state.collectAsState()
 
-    // Tema
+
     val systemDarkTheme = isSystemInDarkTheme()
 
     val darkTheme = when (settingsState.theme) {
@@ -85,28 +84,28 @@ fun NavGraph(
         ThemePreference.DARK -> true
     }
 
-    // Snackbar
+
     val showMessage: (String) -> Unit = { message ->
         scope.launch {
             snackbarHostState.showSnackbar(message)
         }
     }
 
-    // Navegación centralizada del BottomBar
+
     val navigateToDestination: (HabitatDestination) -> Unit = { destination ->
 
         val route = when (destination) {
-            HabitatDestination.HOME -> ResidentRoutes.HOME
-            HabitatDestination.PARKING -> Routes.PARKING
-            HabitatDestination.REPORTS -> Routes.REPORTS
-            HabitatDestination.AREAS -> Routes.AREAS
-            HabitatDestination.PROFILE -> ResidentRoutes.PROFILE
+            HabitatDestination.HOME -> AppRoute.Home
+            HabitatDestination.PARKING -> AppRoute.Parking
+            HabitatDestination.REPORTS -> AppRoute.Reports
+            HabitatDestination.AREAS -> AppRoute.Areas
+            HabitatDestination.PROFILE -> AppRoute.Profile
         }
 
         navController.navigate(route) {
             launchSingleTop = true
 
-            popUpTo(ResidentRoutes.HOME) {
+            popUpTo(AppRoute.Home) {
                 saveState = true
             }
 
@@ -128,7 +127,7 @@ fun NavGraph(
 
                 NavHost(
                     navController = navController,
-                    startDestination = ResidentRoutes.HOME,
+                    startDestination = AppRoute.Home,
                     modifier = Modifier.fillMaxSize()
                 ) {
 
@@ -136,7 +135,7 @@ fun NavGraph(
                     // DASHBOARD
                     // ---------------------------------------------------------
 
-                    composable(ResidentRoutes.HOME) {
+                    composable<AppRoute.Home>() {
 
                         DashboardScreen(
                             state = dashboardState,
@@ -144,7 +143,7 @@ fun NavGraph(
 
                             onAnnouncements = {
                                 navController.navigate(
-                                    ResidentRoutes.ANNOUNCEMENTS
+                                    AppRoute.Announcements
                                 ) {
                                     launchSingleTop = true
                                 }
@@ -152,7 +151,7 @@ fun NavGraph(
 
                             onAnnouncement = { id ->
                                 navController.navigate(
-                                    ResidentRoutes.announcement(id)
+                                    AppRoute.AnnouncementDetail(id.toString())
                                 ) {
                                     launchSingleTop = true
                                 }
@@ -160,7 +159,7 @@ fun NavGraph(
 
                             onParking = {
                                 navController.navigate(
-                                    Routes.PARKING
+                                    AppRoute.Parking
                                 ) {
                                     launchSingleTop = true
                                 }
@@ -168,7 +167,7 @@ fun NavGraph(
 
                             onAreas = {
                                 navController.navigate(
-                                    Routes.AREAS
+                                    AppRoute.Areas
                                 ) {
                                     launchSingleTop = true
                                 }
@@ -176,7 +175,7 @@ fun NavGraph(
 
                             onReports = {
                                 navController.navigate(
-                                    Routes.REPORTS
+                                    AppRoute.Reports
                                 ) {
                                     launchSingleTop = true
                                 }
@@ -184,7 +183,7 @@ fun NavGraph(
 
                             onProfile = {
                                 navController.navigate(
-                                    ResidentRoutes.PROFILE
+                                    AppRoute.Profile
                                 ) {
                                     launchSingleTop = true
                                 }
@@ -198,18 +197,18 @@ fun NavGraph(
                     // PARQUEOS
                     // ---------------------------------------------------------
 
-                    composable(Routes.PARKING) {
+                    composable<AppRoute.Parking>() {
 
                         ParkingScreen(
                             onReservationClick = {
                                 navController.navigate(
-                                    Routes.PARKING_RESERVATION
+                                    AppRoute.ParkingReservation
                                 )
                             },
 
                             onHistoryClick = {
                                 navController.navigate(
-                                    Routes.PARKING_HISTORY
+                                    AppRoute.ParkingHistory
                                 )
                             },
 
@@ -217,7 +216,7 @@ fun NavGraph(
                         )
                     }
 
-                    composable(Routes.PARKING_RESERVATION) {
+                    composable<AppRoute.ParkingReservation>() {
 
                         ReservationScreen(
                             onBackClick = {
@@ -228,7 +227,7 @@ fun NavGraph(
                         )
                     }
 
-                    composable(Routes.PARKING_HISTORY) {
+                    composable<AppRoute.ParkingHistory>() {
 
                         HistoryScreen(
                             onBackClick = {
@@ -243,7 +242,7 @@ fun NavGraph(
                     // REPORTES
                     // ---------------------------------------------------------
 
-                    composable(Routes.REPORTS) {
+                    composable<AppRoute.Reports>() {
 
                         LaunchedEffect(Unit) {
                             reportViewModel.onIntent(
@@ -257,13 +256,13 @@ fun NavGraph(
 
                             onNewReportClick = {
                                 navController.navigate(
-                                    Routes.CREATE_REPORT
+                                    AppRoute.CreateReport
                                 )
                             },
 
                             onReportClick = {
                                 navController.navigate(
-                                    Routes.REPORT_DETAIL
+                                    AppRoute.ReportDetail
                                 )
                             },
 
@@ -271,7 +270,7 @@ fun NavGraph(
                         )
                     }
 
-                    composable(Routes.CREATE_REPORT) {
+                    composable<AppRoute.CreateReport>() {
 
                         CreateReportScreen(
                             state = reportState,
@@ -279,7 +278,7 @@ fun NavGraph(
                         )
                     }
 
-                    composable(Routes.REPORT_DETAIL) {
+                    composable<AppRoute.ReportDetail>() {
 
                         ReportDetailScreen(
                             onBackClick = {
@@ -292,7 +291,7 @@ fun NavGraph(
                     // ÁREAS COMUNES
                     // ---------------------------------------------------------
 
-                    composable(Routes.AREAS) {
+                    composable<AppRoute.Areas>() {
 
                         LaunchedEffect(Unit) {
                             commonAreaViewModel.onIntent(
@@ -316,7 +315,7 @@ fun NavGraph(
                                 )
 
                                 navController.navigate(
-                                    Routes.AREA_AVAILABILITY
+                                    AppRoute.AreaAvailability
                                 )
                             },
 
@@ -324,7 +323,7 @@ fun NavGraph(
                         )
                     }
 
-                    composable(Routes.AREA_AVAILABILITY) {
+                    composable<AppRoute.AreaAvailability>() {
 
                         AreaAvailabilityScreen(
                             state = commonAreaState,
@@ -332,15 +331,13 @@ fun NavGraph(
 
                             onContinueClick = {
                                 navController.navigate(
-                                    Routes.CONFIRM_AREA_RESERVATION
+                                    AppRoute.ConfirmAreaReservation
                                 )
                             }
                         )
                     }
 
-                    composable(
-                        Routes.CONFIRM_AREA_RESERVATION
-                    ) {
+                    composable<AppRoute.ConfirmAreaReservation>() {
 
                         ConfirmReservationScreen(
                             state = commonAreaState,
@@ -356,9 +353,7 @@ fun NavGraph(
                     // ANUNCIOS
                     // ---------------------------------------------------------
 
-                    composable(
-                        ResidentRoutes.ANNOUNCEMENTS
-                    ) {
+                    composable<AppRoute.Announcements>() {
 
                         AnnouncementsScreen(
                             state = announcementsState,
@@ -366,7 +361,7 @@ fun NavGraph(
 
                             onAnnouncement = { id ->
                                 navController.navigate(
-                                    ResidentRoutes.announcement(id)
+                                    AppRoute.AnnouncementDetail(id.toString())
                                 ) {
                                     launchSingleTop = true
                                 }
@@ -378,32 +373,47 @@ fun NavGraph(
                     // DETALLE DE ANUNCIO
                     // ---------------------------------------------------------
 
-                    composable(
-                        route = ResidentRoutes.ANNOUNCEMENT_DETAIL,
-                        arguments = listOf(
-                            navArgument("announcementId") {
-                                type = NavType.StringType
-                            }
-                        )
-                    ) { entry ->
+                    composable<AppRoute.AnnouncementDetail> { entry ->
 
-                        val announcementId = entry.arguments
-                            ?.getString("announcementId")
+                        val announcementId =
+                            entry.toRoute<AppRoute.AnnouncementDetail>().announcementId
+
+                        val announcement =
+                            announcementsState
+                                .announcements
+                                .firstOrNull {
+                                    it.id == announcementId
+                                }
+
+                        AnnouncementDetailScreen(
+                            announcement = announcement,
+                            isLoading = announcementsState.isLoading,
+                            error = announcementsState.error,
+                            isOffline = announcementsState.isOffline,
+
+                            onRetry = {
+                                announcementsViewModel.onIntent(
+                                    AnnouncementsIntent.Refresh
+                                )
+                            },
 
                         AnnouncementDetailRoute(
                             announcementId = announcementId,
                             onBack = {
                                 val returnedToList =
                                     navController.popBackStack(
-                                        ResidentRoutes.ANNOUNCEMENTS,
+                                        AppRoute.Announcements,
                                         false
                                     )
 
                                 if (!returnedToList) {
                                     navController.navigate(
-                                        ResidentRoutes.ANNOUNCEMENTS
+                                        AppRoute.Announcements
                                     ) {
-                                        popUpTo(ResidentRoutes.HOME) {
+
+                                        popUpTo(
+                                            AppRoute.Home
+                                        ) {
                                             inclusive = false
                                         }
 
@@ -418,9 +428,7 @@ fun NavGraph(
                     // PERFIL
                     // ---------------------------------------------------------
 
-                    composable(
-                        ResidentRoutes.PROFILE
-                    ) {
+                    composable<AppRoute.Profile>() {
 
                         ProfileScreen(
                             state = profileState,
@@ -428,7 +436,7 @@ fun NavGraph(
 
                             onSettings = {
                                 navController.navigate(
-                                    ResidentRoutes.SETTINGS
+                                    AppRoute.Settings
                                 ) {
                                     launchSingleTop = true
                                 }
@@ -442,9 +450,7 @@ fun NavGraph(
                     // CONFIGURACIÓN
                     // ---------------------------------------------------------
 
-                    composable(
-                        ResidentRoutes.SETTINGS
-                    ) {
+                    composable<AppRoute.Settings>() {
 
                         SettingsScreen(
                             state = settingsState,
