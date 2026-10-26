@@ -23,8 +23,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.habitatplus.app.core.components.AppScaffold
-import com.habitatplus.app.features.anuncios.intent.AnnouncementsIntent
-import com.habitatplus.app.features.anuncios.ui.AnnouncementDetailScreen
 import com.habitatplus.app.features.anuncios.ui.AnnouncementsScreen
 import com.habitatplus.app.features.anuncios.viewmodel.AnnouncementsViewModel
 import com.habitatplus.app.features.areascomunes.intent.CommonAreaIntent
@@ -51,6 +49,17 @@ import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.theme.ResidentTheme
 import kotlinx.coroutines.launch
 import com.habitatplus.app.features.anuncios.ui.AnnouncementDetailRoute
+import com.habitatplus.app.features.auth.ui.SplashScreen
+import com.habitatplus.app.features.auth.ui.SplashViewModel
+import com.habitatplus.app.features.auth.ui.SplashDestination
+import com.habitatplus.app.features.auth.ui.LoginScreen
+import com.habitatplus.app.features.auth.ui.LoginViewModel
+import com.habitatplus.app.features.auth.ui.RegisterScreen
+import com.habitatplus.app.features.auth.ui.RegisterViewModel
+import com.habitatplus.app.features.dashboard.intent.DashboardIntent
+import com.habitatplus.app.features.parqueos.viewmodel.ParkingViewModel
+import com.habitatplus.app.features.parqueos.intent.ParkingIntent
+
 @Composable
 fun NavGraph(
     onSignOut: (() -> Unit)? = null
@@ -66,6 +75,8 @@ fun NavGraph(
     val settingsViewModel: SettingsViewModel = viewModel()
     val reportViewModel: ReportViewModel = viewModel()
     val commonAreaViewModel: CommonAreaViewModel = viewModel()
+    val parkingViewModel: ParkingViewModel = viewModel()
+    val parkingState by parkingViewModel.state.collectAsState()
 
     // States
     val dashboardState by dashboardViewModel.state.collectAsState()
@@ -93,23 +104,32 @@ fun NavGraph(
 
 
     val navigateToDestination: (HabitatDestination) -> Unit = { destination ->
-
-        val route = when (destination) {
-            HabitatDestination.HOME -> AppRoute.Home
-            HabitatDestination.PARKING -> AppRoute.Parking
-            HabitatDestination.REPORTS -> AppRoute.Reports
-            HabitatDestination.AREAS -> AppRoute.Areas
-            HabitatDestination.PROFILE -> AppRoute.Profile
-        }
-
-        navController.navigate(route) {
-            launchSingleTop = true
-
-            popUpTo(AppRoute.Home) {
-                saveState = true
+        when (destination) {
+            HabitatDestination.HOME -> navController.navigate(AppRoute.Home) {
+                popUpTo<AppRoute.Home> { saveState = true }
+                launchSingleTop = true
+                restoreState = true
             }
-
-            restoreState = true
+            HabitatDestination.PARKING -> navController.navigate(AppRoute.Parking) {
+                popUpTo<AppRoute.Home> { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+            HabitatDestination.REPORTS -> navController.navigate(AppRoute.Reports) {
+                popUpTo<AppRoute.Home> { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+            HabitatDestination.AREAS -> navController.navigate(AppRoute.Areas) {
+                popUpTo<AppRoute.Home> { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+            HabitatDestination.PROFILE -> navController.navigate(AppRoute.Profile) {
+                popUpTo<AppRoute.Home> { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
         }
     }
 
@@ -127,16 +147,113 @@ fun NavGraph(
 
                 NavHost(
                     navController = navController,
-                    startDestination = AppRoute.Home,
+                    startDestination = AppRoute.Splash,
                     modifier = Modifier.fillMaxSize()
                 ) {
 
+                    composable<AppRoute.Splash> {
+
+                        val splashViewModel: SplashViewModel = viewModel()
+                        val splashState by splashViewModel.state.collectAsState()
+
+                        SplashScreen(
+                            state = splashState,
+                            onEvent = splashViewModel::onEvent,
+                            onNavigate = { destination ->
+                                when (destination) {
+                                    SplashDestination.LOGIN -> {
+                                        navController.navigate(AppRoute.Login) {
+                                            popUpTo<AppRoute.Splash> {
+                                                inclusive = true
+                                            }
+                                            launchSingleTop = true
+                                        }
+                                    }
+
+                                    SplashDestination.HOME -> {
+                                        navController.navigate(AppRoute.Home) {
+                                            popUpTo<AppRoute.Splash> {
+                                                inclusive = true
+                                            }
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    composable<AppRoute.Login> {
+
+                        val loginViewModel: LoginViewModel = viewModel()
+                        val loginState by loginViewModel.state.collectAsState()
+
+                        LoginScreen(
+                            state = loginState,
+                            onEvent = loginViewModel::onEvent,
+                            onRegisterClick = {
+                                navController.navigate(AppRoute.Register)
+                            },
+                            onLoginSuccess = {
+                                navController.navigate(AppRoute.Home) {
+                                    popUpTo<AppRoute.Login> {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+
+                    composable<AppRoute.Register> {
+
+                        val registerViewModel: RegisterViewModel = viewModel()
+                        val registerState by registerViewModel.state.collectAsState()
+
+                        RegisterScreen(
+                            state = registerState,
+                            onEvent = registerViewModel::onEvent,
+                            onLoginClick = {
+                                navController.popBackStack()
+                            },
+                            onRegisterSuccess = {
+                                navController.navigate(AppRoute.Home) {
+                                    popUpTo<AppRoute.Login> {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
                     // ---------------------------------------------------------
                     // DASHBOARD
                     // ---------------------------------------------------------
 
                     composable<AppRoute.Home>() {
+                        LaunchedEffect(Unit) {
+                            dashboardViewModel.onIntent(
+                                DashboardIntent.LoadRemoteData
+                            )
+                        }
+                        LaunchedEffect(
+                            dashboardState.httpResult,
+                            dashboardState.httpError
+                        ) {
+                            when {
+                                dashboardState.httpResult != null -> {
+                                    showMessage(
+                                        "Conexión HTTP exitosa: datos recibidos."
+                                    )
+                                }
 
+                                dashboardState.httpError != null -> {
+                                    showMessage(
+                                        "Error HTTP: ${dashboardState.httpError}"
+                                    )
+                                }
+                            }
+                        }
                         DashboardScreen(
                             state = dashboardState,
                             onIntent = dashboardViewModel::onIntent,
@@ -197,29 +314,33 @@ fun NavGraph(
                     // PARQUEOS
                     // ---------------------------------------------------------
 
-                    composable<AppRoute.Parking>() {
 
+                    composable<AppRoute.Parking> {
                         ParkingScreen(
+                            state = parkingState,
+                            onIntent = parkingViewModel::onIntent,
                             onReservationClick = {
                                 navController.navigate(
                                     AppRoute.ParkingReservation
                                 )
                             },
-
                             onHistoryClick = {
-                                navController.navigate(
-                                    AppRoute.ParkingHistory
-                                )
+                                navController.navigate(AppRoute.ParkingHistory)
                             },
-
                             onDestinationClick = navigateToDestination
                         )
                     }
 
-                    composable<AppRoute.ParkingReservation>() {
-
+                    composable<AppRoute.ParkingReservation> {
                         ReservationScreen(
+                            state = parkingState,
+                            onIntent = parkingViewModel::onIntent,
+
                             onBackClick = {
+                                navController.popBackStack()
+                            },
+
+                            onReservationSuccess = {
                                 navController.popBackStack()
                             },
 
@@ -227,16 +348,17 @@ fun NavGraph(
                         )
                     }
 
-                    composable<AppRoute.ParkingHistory>() {
-
+                    composable<AppRoute.ParkingHistory> {
                         HistoryScreen(
+                            state = parkingState,
                             onBackClick = {
                                 navController.popBackStack()
                             },
-
-                            onDestinationClick = navigateToDestination
+                            onDestinationClick = navigateToDestination,
+                            onIntent = parkingViewModel::onIntent
                         )
                     }
+
 
                     // ---------------------------------------------------------
                     // REPORTES
@@ -260,10 +382,12 @@ fun NavGraph(
                                 )
                             },
 
-                            onReportClick = {
-                                navController.navigate(
-                                    AppRoute.ReportDetail
+                            onReportClick = { report ->
+                                reportViewModel.onIntent(
+                                    ReportIntent.SelectReport(report.id)
                                 )
+
+                                navController.navigate(AppRoute.ReportDetail)
                             },
 
                             onDestinationClick = navigateToDestination
@@ -271,16 +395,21 @@ fun NavGraph(
                     }
 
                     composable<AppRoute.CreateReport>() {
-
                         CreateReportScreen(
                             state = reportState,
-                            onIntent = reportViewModel::onIntent
+                            onIntent = reportViewModel::onIntent,
+                            onBackClick = {
+                                navController.popBackStack()
+                            },
+                            onReportCreated = {
+                                navController.popBackStack()
+                            }
                         )
                     }
 
-                    composable<AppRoute.ReportDetail>() {
-
+                    composable<AppRoute.ReportDetail> {
                         ReportDetailScreen(
+                            state = reportState,
                             onBackClick = {
                                 navController.popBackStack()
                             }
@@ -328,11 +457,13 @@ fun NavGraph(
                         AreaAvailabilityScreen(
                             state = commonAreaState,
                             onIntent = commonAreaViewModel::onIntent,
-
                             onContinueClick = {
                                 navController.navigate(
                                     AppRoute.ConfirmAreaReservation
                                 )
+                            },
+                            onBackClick = {
+                                navController.popBackStack()
                             }
                         )
                     }
@@ -377,25 +508,6 @@ fun NavGraph(
 
                         val announcementId =
                             entry.toRoute<AppRoute.AnnouncementDetail>().announcementId
-
-                        val announcement =
-                            announcementsState
-                                .announcements
-                                .firstOrNull {
-                                    it.id == announcementId
-                                }
-
-                        AnnouncementDetailScreen(
-                            announcement = announcement,
-                            isLoading = announcementsState.isLoading,
-                            error = announcementsState.error,
-                            isOffline = announcementsState.isOffline,
-
-                            onRetry = {
-                                announcementsViewModel.onIntent(
-                                    AnnouncementsIntent.Refresh
-                                )
-                            },
 
                         AnnouncementDetailRoute(
                             announcementId = announcementId,
@@ -461,21 +573,18 @@ fun NavGraph(
                                 "${profileState.tower} · " +
                                         profileState.apartment,
                             onIntent = settingsViewModel::onIntent,
-
+                            onBackClick = {
+                                navController.popBackStack()
+                            },
                             onSignOut = {
-
-                                if (onSignOut != null) {
-
-                                    onSignOut()
-
-                                } else {
-
-                                    showMessage(
-                                        "Firebase Auth y Login están pendientes " +
-                                                "de integración. No se cerró la sesión."
-                                    )
+                                navController.navigate(AppRoute.Login) {
+                                    popUpTo<AppRoute.Home> {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
                                 }
                             }
+
                         )
                     }
                 }
@@ -491,3 +600,4 @@ fun NavGraph(
         }
     }
 }
+

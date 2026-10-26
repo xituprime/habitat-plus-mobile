@@ -29,25 +29,45 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.habitatplus.app.ui.theme.HabitatBackground
 import com.habitatplus.app.ui.theme.HabitatBlue
-import com.habitatplus.app.ui.theme.HabitatLightBlue
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
 import com.habitatplus.app.ui.theme.HabitatSurface
 import com.habitatplus.app.ui.theme.HabitatTextPrimary
 import com.habitatplus.app.ui.theme.HabitatTextSecondary
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 
 @Composable
-fun LoginScreen() {
+fun LoginScreen(
+    state: LoginState = LoginState(),
+    onEvent: (LoginEvent) -> Unit = {},
+    onRegisterClick: () -> Unit = {},
+    onLoginSuccess: () -> Unit = {}
+) {
+    androidx.compose.runtime.LaunchedEffect(state.isLoggedIn) {
+        if (state.isLoggedIn) {
+            onLoginSuccess()
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(HabitatBackground)
+            .imePadding()
+            .verticalScroll(rememberScrollState())
             .padding(
-                horizontal = 24.dp,
-                vertical = 28.dp
-            ),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+                horizontal = 20.dp,
+                vertical = 24.dp
+            )
+    ){
 
         Spacer(
             modifier = Modifier.height(20.dp)
@@ -142,11 +162,16 @@ fun LoginScreen() {
                 )
 
                 OutlinedTextField(
-                    value = "axel.xitumul@habitatplus.com",
-                    onValueChange = {},
+                    value = state.email,
+                    onValueChange = {
+                        onEvent(LoginEvent.EmailChanged(it))
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    readOnly = true,
                     singleLine = true,
+                    enabled = !state.isLoading,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 )
 
@@ -158,11 +183,14 @@ fun LoginScreen() {
                 )
 
                 OutlinedTextField(
-                    value = "••••••••",
-                    onValueChange = {},
+                    value = state.password,
+                    onValueChange = {
+                        onEvent(LoginEvent.PasswordChanged(it))
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    readOnly = true,
                     singleLine = true,
+                    enabled = !state.isLoading,
+                    visualTransformation = PasswordVisualTransformation(),
                     shape = RoundedCornerShape(12.dp)
                 )
 
@@ -175,9 +203,18 @@ fun LoginScreen() {
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium
                 )
-
+                state.error?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                }
                 Button(
-                    onClick = {},
+                    onClick = {
+                        onEvent(LoginEvent.LoginClicked)
+                    },
+                    enabled = !state.isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
@@ -213,7 +250,10 @@ fun LoginScreen() {
                 text = "Crear cuenta",
                 color = HabitatBlue,
                 fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable {
+                    onRegisterClick()
+                },
             )
         }
     }

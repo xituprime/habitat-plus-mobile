@@ -12,8 +12,23 @@ import com.habitatplus.app.features.parqueos.state.ParkingState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.habitatplus.app.data.local.DatabaseProvider
+import com.habitatplus.app.data.local.ParkingReservationEntity
+import com.habitatplus.app.data.repository.ParkingRepository
+import kotlinx.coroutines.launch
 
-class ParkingViewModel : ViewModel() {
+class ParkingViewModel(
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val repository = ParkingRepository(
+        DatabaseProvider
+            .getDatabase(application)
+            .parkingReservationDao()
+    )
 
     private val _state = MutableStateFlow(ParkingState())
 
@@ -21,13 +36,18 @@ class ParkingViewModel : ViewModel() {
 
     init {
         loadMockData()
+        observeSavedReservations()
     }
 
     fun onIntent(intent: ParkingIntent) {
         when (intent) {
 
             ParkingIntent.LoadData -> {
-                loadMockData()
+                if (_state.value.residentParkings.isEmpty() &&
+                    _state.value.visitorParkings.isEmpty()
+                ) {
+                    loadMockData()
+                }
             }
 
             is ParkingIntent.StartReservation -> {
@@ -87,6 +107,20 @@ class ParkingViewModel : ViewModel() {
             is ParkingIntent.EditParking -> Unit
             is ParkingIntent.DeleteParking -> Unit
             is ParkingIntent.ChangeParkingStatus -> Unit
+
+            is ParkingIntent.HistorySearchChanged -> {
+                _state.value = _state.value.copy(
+                    historySearch = intent.value
+                )
+                updateFilteredHistory()
+            }
+
+            is ParkingIntent.HistoryFilterChanged -> {
+                _state.value = _state.value.copy(
+                    historyFilter = intent.value
+                )
+                updateFilteredHistory()
+            }
         }
     }
 
@@ -142,6 +176,7 @@ class ParkingViewModel : ViewModel() {
     }
 
     private fun submitReservation() {
+        if (_state.value.reservationSuccess) return
         val form = _state.value.reservationForm
 
         val visitorNameError =
@@ -206,6 +241,8 @@ class ParkingViewModel : ViewModel() {
                 ),
                 reservationSuccess = false
             )
+            updateFilteredHistory()
+            updateHistoryStatistics()
 
             return
         }
@@ -231,12 +268,86 @@ class ParkingViewModel : ViewModel() {
             status = "Activa"
         )
 
+        viewModelScope.launch {
+            try {
+                // 1. Guardar primero en Room
+                repository.saveReservation(
+                    ParkingReservationEntity(
+                        parkingId = form.parkingId,
+                        visitorName = form.visitorName,
+                        licensePlate = form.licensePlate,
+                        vehicleBrand = form.vehicleBrand,
+                        vehicleColor = form.vehicleColor,
+                        apartment = form.apartment,
+                        date = form.date,
+                        entryTime = form.entryTime,
+                        exitTime = form.exitTime,
+                        status = "Activa"
+                    )
+                )
+
+                // 2. Actualizar el estado MVI
+                _state.value = _state.value.copy(
+                    visitorParkings = updatedParkings,
+                    recentHistory = listOf(newHistory) +
+                            _state.value.recentHistory,
+                    reservationSuccess = true,
+                    error = null
+                )
+
+                // 3. Actualizar historial y estadísticas
+                updateFilteredHistory()
+                updateHistoryStatistics()
+
+            } catch (exception: Exception) {
+                _state.value = _state.value.copy(
+                    reservationSuccess = false,
+                    error = "No se pudo guardar la reserva localmente."
+                )
+            }
+        }
+
         _state.value = _state.value.copy(
-            visitorParkings = updatedParkings,
-            recentHistory = listOf(newHistory) + _state.value.recentHistory,
             reservationSuccess = true,
             error = null
         )
+
+        if (_state.value.isSavingReservation ||
+            _state.value.reservationSuccess
+        ) return
+
+        _state.value = _state.value.copy(
+            isSavingReservation = true,
+            error = null
+        )
+        viewModelScope.launch {
+            try {
+                repository.saveReservation(
+                    ParkingReservationEntity(
+                        parkingId = form.parkingId,
+                        visitorName = form.visitorName,
+                        licensePlate = form.licensePlate,
+                        vehicleBrand = form.vehicleBrand,
+                        vehicleColor = form.vehicleColor,
+                        apartment = form.apartment,
+                        date = form.date,
+                        entryTime = form.entryTime,
+                        exitTime = form.exitTime
+                    )
+                )
+                _state.value = _state.value.copy(
+                    isSavingReservation = false,
+                    reservationSuccess = true,
+                    error = null
+                )
+            } catch (exception: Exception) {
+                _state.value = _state.value.copy(
+                    isSavingReservation = false,
+                    reservationSuccess = false,
+                    error = "No se pudo guardar la reserva localmente."
+                )
+            }
+        }
     }
 
     private fun loadMockData() {
@@ -268,7 +379,19 @@ class ParkingViewModel : ViewModel() {
                     id = "V-03",
                     type = ParkingType.VISITOR,
                     status = ParkingStatus.MAINTENANCE
+                ),
+
+                ParkingSpace(
+                    id = "V-04",
+                    type = ParkingType.VISITOR,
+                    status = ParkingStatus.AVAILABLE
+                ),
+                ParkingSpace(
+                    id = "V-05",
+                    type = ParkingType.VISITOR,
+                    status = ParkingStatus.AVAILABLE
                 )
+
             ),
 
             recentHistory = listOf(
@@ -279,10 +402,116 @@ class ParkingViewModel : ViewModel() {
                     time = "17:00",
                     status = "Finalizada"
                 )
+
             ),
 
             registeredResidentParkings = 120,
             userRole = UserRole.RESIDENT
         )
+        updateFilteredHistory()
+        updateHistoryStatistics()
     }
+
+    private fun updateFilteredHistory() {
+        val current = _state.value
+
+        val filtered = current.recentHistory.filter { reservation ->
+            val matchesSearch =
+                current.historySearch.isBlank() ||
+                        reservation.visitorName.contains(
+                            current.historySearch,
+                            ignoreCase = true
+                        ) ||
+                        reservation.parkingId.contains(
+                            current.historySearch,
+                            ignoreCase = true
+                        ) ||
+                        reservation.date.contains(
+                            current.historySearch,
+                            ignoreCase = true
+                        )
+
+            val matchesFilter = when (current.historyFilter) {
+                "Activas" -> reservation.status == "Activa"
+                "Finalizadas" -> reservation.status == "Finalizada"
+                "Canceladas" -> reservation.status == "Cancelada"
+                else -> true
+            }
+
+            matchesSearch && matchesFilter
+        }
+
+        _state.value = current.copy(
+            filteredHistory = filtered
+        )
+    }
+
+    private fun updateHistoryStatistics() {
+        val history = _state.value.recentHistory
+
+        val mostUsed = history
+            .groupingBy { it.parkingId }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key ?: "-"
+
+        _state.value = _state.value.copy(
+            totalReservations = history.size,
+            totalVisitors = history
+                .map { it.visitorName.trim().lowercase() }
+                .distinct()
+                .size,
+            mostUsedParking = mostUsed
+        )
+    }
+
+
+    private fun observeSavedReservations() {
+        viewModelScope.launch {
+            repository.reservations.collect { savedReservations ->
+
+                val savedHistory = savedReservations.map { reservation ->
+                    ParkingHistory(
+                        visitorName = reservation.visitorName,
+                        parkingId = reservation.parkingId,
+                        date = reservation.date,
+                        time = reservation.entryTime,
+                        status = reservation.status
+                    )
+                }
+
+                val occupiedIds = savedReservations
+                    .filter { it.status == "Activa" }
+                    .map { it.parkingId }
+                    .toSet()
+
+                val updatedParkings =
+                    _state.value.visitorParkings.map { parking ->
+                        if (parking.id in occupiedIds) {
+                            val reservation = savedReservations
+                                .firstOrNull {
+                                    it.parkingId == parking.id &&
+                                            it.status == "Activa"
+                                }
+
+                            parking.copy(
+                                status = ParkingStatus.OCCUPIED,
+                                occupiedUntil = reservation?.exitTime
+                            )
+                        } else {
+                            parking
+                        }
+                    }
+
+                _state.value = _state.value.copy(
+                    visitorParkings = updatedParkings,
+                    recentHistory = savedHistory
+                )
+
+                updateFilteredHistory()
+                updateHistoryStatistics()
+            }
+        }
+    }
+
 }

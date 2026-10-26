@@ -19,12 +19,23 @@ import com.habitatplus.app.R
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.*
+import com.habitatplus.app.features.parqueos.state.ParkingState
+import com.habitatplus.app.features.parqueos.intent.ParkingIntent
+import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun ReservationScreen(
+    state: ParkingState = ParkingState(),
+    onIntent: (ParkingIntent) -> Unit = {},
     onBackClick: () -> Unit = {},
+    onReservationSuccess: () -> Unit = {},
     onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
+    LaunchedEffect(state.reservationSuccess) {
+        if (state.reservationSuccess) {
+            onReservationSuccess()
+        }
+    }
 
     HabitatScaffold(
         title = "Reservar Parqueo",
@@ -62,7 +73,7 @@ fun ReservationScreen(
 
                     Column {
                         Text(
-                            text = "V-01",
+                            text = state.reservationForm.parkingId,
                             color = HabitatBlue,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
@@ -98,14 +109,20 @@ fun ReservationScreen(
             )
 
             HabitatField(
-                value = "Carlos Pérez",
-                label = "Nombre del visitante"
+                value = state.reservationForm.visitorName,
+                label = "Nombre del visitante",
+                onValueChange = {
+                    onIntent(ParkingIntent.VisitorNameChanged(it))
+                },
+                isError = state.reservationForm.visitorNameError != null,
+                errorMessage = state.reservationForm.visitorNameError
             )
 
             HabitatField(
-                value = "A-203",
+                value = state.reservationForm.apartment,
                 label = "Apartamento",
-                supporting = "Asignado automáticamente"
+                supporting = "Asignado automáticamente",
+                readOnly = true
             )
 
             FormSectionTitle(
@@ -113,8 +130,13 @@ fun ReservationScreen(
             )
 
             HabitatField(
-                value = "P-123ABC",
-                label = "Placa"
+                value = state.reservationForm.licensePlate,
+                label = "Placa",
+                onValueChange = {
+                    onIntent(ParkingIntent.LicensePlateChanged(it))
+                },
+                isError = state.reservationForm.licensePlateError != null,
+                errorMessage = state.reservationForm.licensePlateError
             )
 
             Row(
@@ -126,8 +148,11 @@ fun ReservationScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     HabitatField(
-                        value = "Toyota",
-                        label = "Marca"
+                        value = state.reservationForm.vehicleBrand,
+                        label = "Marca",
+                        onValueChange = {
+                            onIntent(ParkingIntent.VehicleBrandChanged(it))
+                        }
                     )
                 }
 
@@ -135,8 +160,11 @@ fun ReservationScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     HabitatField(
-                        value = "Blanco",
-                        label = "Color"
+                        value = state.reservationForm.vehicleColor,
+                        label = "Color",
+                        onValueChange = {
+                            onIntent(ParkingIntent.VehicleColorChanged(it))
+                        }
                     )
                 }
             }
@@ -202,8 +230,13 @@ fun ReservationScreen(
             )
 
             HabitatField(
-                value = "26 Septiembre 2026",
-                label = "Fecha"
+                value = state.reservationForm.date,
+                label = "Fecha",
+                onValueChange = {
+                    onIntent(ParkingIntent.DateChanged(it))
+                },
+                isError = state.reservationForm.dateError != null,
+                errorMessage = state.reservationForm.dateError
             )
 
             Row(
@@ -215,8 +248,13 @@ fun ReservationScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     HabitatField(
-                        value = "14:00",
-                        label = "Hora ingreso"
+                        value = state.reservationForm.entryTime,
+                        label = "Hora ingreso",
+                        onValueChange = {
+                            onIntent(ParkingIntent.EntryTimeChanged(it))
+                        },
+                        isError = state.reservationForm.entryTimeError != null,
+                        errorMessage = state.reservationForm.entryTimeError
                     )
                 }
 
@@ -224,21 +262,35 @@ fun ReservationScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     HabitatField(
-                        value = "16:00",
-                        label = "Hora salida"
+                        value = state.reservationForm.exitTime,
+                        label = "Hora salida",
+                        onValueChange = {
+                            onIntent(ParkingIntent.ExitTimeChanged(it))
+                        },
+                        isError = state.reservationForm.exitTimeError != null,
+                        errorMessage = state.reservationForm.exitTimeError
                     )
                 }
             }
-
+            if (state.reservationSuccess) {
+                Text(
+                    text = "¡Reserva realizada correctamente!",
+                    color = ParkingAvailable,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             Button(
-                onClick = {},
+                onClick = {
+                    onIntent(ParkingIntent.SubmitReservation)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = HabitatBlue
-                )
+                ),
+                enabled = !state.isSavingReservation
             ) {
                 Text(
                     text = "Confirmar Reserva de Parqueo",
@@ -251,33 +303,38 @@ fun ReservationScreen(
     }
 }
 
+
 @Composable
 private fun HabitatField(
     value: String,
     label: String,
-    supporting: String? = null
+    onValueChange: (String) -> Unit = {},
+    supporting: String? = null,
+    readOnly: Boolean = false,
+    isError: Boolean = false,
+    errorMessage: String? = null
 ) {
-
     OutlinedTextField(
         value = value,
-        onValueChange = {},
-        label = {
-            Text(label)
-        },
-        supportingText = supporting?.let {
-            {
-                Text(
-                    text = it,
-                    fontSize = 9.sp
-                )
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        supportingText = when {
+            errorMessage != null -> {
+                { Text(errorMessage) }
             }
+            supporting != null -> {
+                { Text(supporting, fontSize = 9.sp) }
+            }
+            else -> null
         },
         modifier = Modifier.fillMaxWidth(),
-        readOnly = true,
+        readOnly = readOnly,
+        isError = isError,
         singleLine = true,
         shape = RoundedCornerShape(12.dp)
     )
 }
+
 
 @Composable
 private fun FormSectionTitle(

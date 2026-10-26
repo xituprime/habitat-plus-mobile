@@ -61,4 +61,12 @@ sealed interface ParkingIntent {
     ) : ParkingIntent
 
     data object SubmitReservation : ParkingIntent
+
+    data class HistorySearchChanged(
+        val value: String
+    ) : ParkingIntent
+
+    data class HistoryFilterChanged(
+        val value: String
+    ) : ParkingIntent
 }

@@ -33,6 +33,7 @@ import com.habitatplus.app.features.configuracion.intent.SettingsIntent
 import com.habitatplus.app.features.configuracion.state.SettingsDialog
 import com.habitatplus.app.features.configuracion.state.SettingsState
 import com.habitatplus.app.features.configuracion.state.ThemePreference
+import com.habitatplus.app.ui.components.HabitatBackHeader
 
 @Composable
 fun SettingsScreen(
@@ -43,7 +44,8 @@ fun SettingsScreen(
     residence: String,
     onIntent: (SettingsIntent) -> Unit,
     onSignOut: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBackClick : () -> Unit = {}
 ) {
     LaunchedEffect(state.signOutRequested) {
         if (state.signOutRequested) {
@@ -53,6 +55,10 @@ fun SettingsScreen(
     }
 
     ResidentPage(modifier) {
+        HabitatBackHeader(
+            title = "Regresar a perfil",
+            onBackClick = onBackClick
+        )
         ResidentTitle(
             text = "Configuración",
             subtitle = "Preferencias de la aplicación"

@@ -34,13 +34,15 @@ import com.habitatplus.app.features.reportes.intent.ReportIntent
 import com.habitatplus.app.features.reportes.model.ReportCategory
 import com.habitatplus.app.features.reportes.state.ReportState
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
+import com.habitatplus.app.ui.components.HabitatBackHeader
 
 @Composable
 fun CreateReportScreen(
     state: ReportState,
     onIntent: (ReportIntent) -> Unit = {},
     onAddPhotoClick: () -> Unit = {},
-    onReportCreated: () -> Unit = {}
+    onReportCreated: () -> Unit = {},
+    onBackClick: () -> Unit = {}
 ) {
 
     LaunchedEffect(state.reportSubmitted) {
@@ -63,7 +65,10 @@ fun CreateReportScreen(
                 vertical = 8.dp
             )
     ) {
-
+        HabitatBackHeader(
+            title = "Regresar a reportes",
+            onBackClick = onBackClick
+        )
         Text(
             text = "Crear Reporte",
             fontSize = 22.sp,

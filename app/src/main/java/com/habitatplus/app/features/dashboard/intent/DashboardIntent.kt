@@ -5,6 +5,8 @@ import com.habitatplus.app.features.dashboard.model.DashboardTab
 
 sealed interface DashboardIntent {
 
+    data object LoadRemoteData : DashboardIntent
+
     data object Load : DashboardIntent
 
     data object Refresh : DashboardIntent

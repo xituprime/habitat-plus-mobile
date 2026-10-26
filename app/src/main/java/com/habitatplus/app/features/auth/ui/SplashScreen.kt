@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,7 +26,18 @@ import com.habitatplus.app.ui.theme.HabitatPlusTheme
 import com.habitatplus.app.ui.theme.HabitatTextSecondary
 
 @Composable
-fun SplashScreen() {
+fun SplashScreen(
+    state: SplashState = SplashState(),
+    onEvent: (SplashEvent) -> Unit = {},
+    onNavigate: (SplashDestination) -> Unit = {}
+) {
+    LaunchedEffect(Unit) {
+        onEvent(SplashEvent.CheckSession)
+    }
+
+    LaunchedEffect(state.destination) {
+        state.destination?.let(onNavigate)
+    }
 
     Column(
         modifier = Modifier
