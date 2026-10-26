@@ -22,5 +22,8 @@ data class DashboardState(
     val reports: List<DashboardReport> = emptyList(),
     val maintenance: DashboardMaintenance? = null,
     val lastUpdated: String = "",
-    val pendingNavigation: DashboardNavigation? = null
+    val pendingNavigation: DashboardNavigation? = null,
+    val isHttpLoading: Boolean = false,
+    val httpResult: String? = null,
+    val httpError: String? = null
 )

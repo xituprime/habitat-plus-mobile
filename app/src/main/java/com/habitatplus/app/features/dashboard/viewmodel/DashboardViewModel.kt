@@ -20,6 +20,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import com.habitatplus.app.data.remote.DemoApiService
 
 class DashboardViewModel : ViewModel() {
 
@@ -28,6 +29,8 @@ class DashboardViewModel : ViewModel() {
 
     private val residentRepository: ResidentRepository =
         FakeResidentRepository
+
+    private val demoApiService = DemoApiService()
 
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
@@ -50,6 +53,9 @@ class DashboardViewModel : ViewModel() {
 
     fun onIntent(intent: DashboardIntent) {
         when (intent) {
+            DashboardIntent.LoadRemoteData -> {
+                loadRemoteData()
+            }
             DashboardIntent.Load,
             DashboardIntent.Refresh -> loadDashboard()
 
@@ -160,4 +166,41 @@ class DashboardViewModel : ViewModel() {
             }
         }
     }
+
+
+    private fun loadRemoteData() {
+        if (_state.value.isHttpLoading) return
+
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    isHttpLoading = true,
+                    httpResult = null,
+                    httpError = null
+                )
+            }
+
+            try {
+                val response = demoApiService.fetchPost()
+
+                _state.update {
+                    it.copy(
+                        isHttpLoading = false,
+                        httpResult = response,
+                        httpError = null
+                    )
+                }
+            } catch (exception: Exception) {
+                _state.update {
+                    it.copy(
+                        isHttpLoading = false,
+                        httpResult = null,
+                        httpError = exception.message
+                            ?: "No se pudo conectar a internet."
+                    )
+                }
+            }
+        }
+    }
+
 }

@@ -56,6 +56,7 @@ import com.habitatplus.app.features.auth.ui.LoginScreen
 import com.habitatplus.app.features.auth.ui.LoginViewModel
 import com.habitatplus.app.features.auth.ui.RegisterScreen
 import com.habitatplus.app.features.auth.ui.RegisterViewModel
+import com.habitatplus.app.features.dashboard.intent.DashboardIntent
 import com.habitatplus.app.features.parqueos.viewmodel.ParkingViewModel
 import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 
@@ -230,7 +231,29 @@ fun NavGraph(
                     // ---------------------------------------------------------
 
                     composable<AppRoute.Home>() {
+                        LaunchedEffect(Unit) {
+                            dashboardViewModel.onIntent(
+                                DashboardIntent.LoadRemoteData
+                            )
+                        }
+                        LaunchedEffect(
+                            dashboardState.httpResult,
+                            dashboardState.httpError
+                        ) {
+                            when {
+                                dashboardState.httpResult != null -> {
+                                    showMessage(
+                                        "Conexión HTTP exitosa: datos recibidos."
+                                    )
+                                }
 
+                                dashboardState.httpError != null -> {
+                                    showMessage(
+                                        "Error HTTP: ${dashboardState.httpError}"
+                                    )
+                                }
+                            }
+                        }
                         DashboardScreen(
                             state = dashboardState,
                             onIntent = dashboardViewModel::onIntent,
@@ -359,10 +382,12 @@ fun NavGraph(
                                 )
                             },
 
-                            onReportClick = {
-                                navController.navigate(
-                                    AppRoute.ReportDetail
+                            onReportClick = { report ->
+                                reportViewModel.onIntent(
+                                    ReportIntent.SelectReport(report.id)
                                 )
+
+                                navController.navigate(AppRoute.ReportDetail)
                             },
 
                             onDestinationClick = navigateToDestination
@@ -382,9 +407,9 @@ fun NavGraph(
                         )
                     }
 
-                    composable<AppRoute.ReportDetail>() {
-
+                    composable<AppRoute.ReportDetail> {
                         ReportDetailScreen(
+                            state = reportState,
                             onBackClick = {
                                 navController.popBackStack()
                             }
