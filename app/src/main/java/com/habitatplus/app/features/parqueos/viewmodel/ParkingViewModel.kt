@@ -385,7 +385,12 @@ class ParkingViewModel(
                     id = "V-04",
                     type = ParkingType.VISITOR,
                     status = ParkingStatus.AVAILABLE
-            )
+                ),
+                ParkingSpace(
+                    id = "V-05",
+                    type = ParkingType.VISITOR,
+                    status = ParkingStatus.AVAILABLE
+                )
 
             ),
 
