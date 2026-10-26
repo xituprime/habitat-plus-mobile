@@ -36,12 +36,14 @@ import com.habitatplus.app.features.areascomunes.model.TimeSlot
 import com.habitatplus.app.features.areascomunes.model.TimeSlotStatus
 import com.habitatplus.app.features.areascomunes.state.CommonAreaState
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
+import com.habitatplus.app.ui.components.HabitatBackHeader
 
 @Composable
 fun AreaAvailabilityScreen(
     state: CommonAreaState,
     onIntent: (CommonAreaIntent) -> Unit = {},
-    onContinueClick: () -> Unit = {}
+    onContinueClick: () -> Unit = {},
+    onBackClick: () -> Unit = {}
 ) {
 
     val selectedArea = state.areas.firstOrNull {
@@ -70,7 +72,10 @@ fun AreaAvailabilityScreen(
     ) {
 
         // Título
-
+        HabitatBackHeader(
+            title = "Regresar a áreas comunes",
+            onBackClick = onBackClick
+        )
         Text(
             text = "RESERVA COMUNITARIA",
             fontSize = 9.sp,

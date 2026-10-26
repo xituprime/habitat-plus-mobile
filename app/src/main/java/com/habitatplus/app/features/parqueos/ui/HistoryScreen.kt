@@ -15,16 +15,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.habitatplus.app.R
+import com.habitatplus.app.features.parqueos.state.ParkingState
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.*
+import com.habitatplus.app.features.parqueos.model.ParkingHistory
+import com.habitatplus.app.features.parqueos.intent.ParkingIntent
+import androidx.compose.foundation.clickable
 
 @Composable
 fun HistoryScreen(
+    state: ParkingState = ParkingState(),
     onBackClick: () -> Unit = {},
-    onDestinationClick: (HabitatDestination) -> Unit = {}
-) {
-
+    onDestinationClick: (HabitatDestination) -> Unit = {},
+    onIntent: (ParkingIntent) -> Unit = {}
+){
     HabitatScaffold(
         title = "Historial de Parqueo",
         selectedDestination = HabitatDestination.PARKING,
@@ -45,10 +50,11 @@ fun HistoryScreen(
             Spacer(Modifier.height(4.dp))
 
             OutlinedTextField(
-                value = "",
-                onValueChange = {},
+                value = state.historySearch,
+                onValueChange = {
+                    onIntent(ParkingIntent.HistorySearchChanged(it))
+                },
                 modifier = Modifier.fillMaxWidth(),
-                readOnly = true,
                 placeholder = {
                     Text(
                         text = "Buscar por nombre, placa o fecha"
@@ -71,14 +77,23 @@ fun HistoryScreen(
                 horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
 
-                FilterChipDesign(
-                    text = "Todos",
-                    selected = true
-                )
+                listOf(
+                    "Todos",
+                    "Activas",
+                    "Finalizadas",
+                    "Canceladas"
+                ).forEach { filter ->
 
-                FilterChipDesign("Activas")
-                FilterChipDesign("Finalizadas")
-                FilterChipDesign("Canceladas")
+                    FilterChipDesign(
+                        text = filter,
+                        selected = state.historyFilter == filter,
+                        onClick = {
+                            onIntent(
+                                ParkingIntent.HistoryFilterChanged(filter)
+                            )
+                        }
+                    )
+                }
             }
 
             Text(
@@ -107,8 +122,8 @@ fun HistoryScreen(
                 ) {
 
                     StatisticItem(
-                        number = "15",
-                        label = "Reservas\neste mes"
+                        number = state.totalReservations.toString(),
+                        label = "Reservas\nregistradas"
                     )
 
                     VerticalDivider(
@@ -117,7 +132,7 @@ fun HistoryScreen(
                     )
 
                     StatisticItem(
-                        number = "24",
+                        number = state.totalVisitors.toString(),
                         label = "Visitantes\nregistrados"
                     )
 
@@ -127,7 +142,7 @@ fun HistoryScreen(
                     )
 
                     StatisticItem(
-                        number = "V-02",
+                        number = state.mostUsedParking,
                         label = "Parqueo más\nutilizado"
                     )
                 }
@@ -140,49 +155,40 @@ fun HistoryScreen(
                 color = HabitatTextPrimary
             )
 
-            HistoryDesignCard(
-                name = "Carlos Pérez",
-                plate = "P-123ABC",
-                parking = "V-02",
-                date = "26 Septiembre",
-                time = "14:00 - 16:00",
-                status = "Activa",
-                statusColor = ParkingAvailable,
-                statusBackground = ParkingAvailableContainer
-            )
 
-            HistoryDesignCard(
-                name = "Andrea López",
-                plate = "P-842KLM",
-                parking = "V-01",
-                date = "25 Septiembre",
-                time = "10:00 - 12:00",
-                status = "Finalizada",
-                statusColor = HabitatSecondary,
-                statusBackground = HabitatLightBlue
-            )
+            if (state.filteredHistory.isEmpty()) {
+                Text(
+                    text = "Todavía no tienes reservas registradas.",
+                    color = HabitatTextSecondary,
+                    fontSize = 12.sp
+                )
+            } else {
+                state.filteredHistory.forEach { reservation ->
 
-            HistoryDesignCard(
-                name = "Luis Morales",
-                plate = "P-927XYZ",
-                parking = "V-03",
-                date = "23 Septiembre",
-                time = "17:00 - 19:00",
-                status = "Cancelada",
-                statusColor = ParkingOccupied,
-                statusBackground = ParkingOccupiedContainer
-            )
+                    val isActive = reservation.status == "Activa"
+                    val isCancelled = reservation.status == "Cancelada"
 
-            HistoryDesignCard(
-                name = "María García",
-                plate = "P-456DEF",
-                parking = "V-02",
-                date = "20 Septiembre",
-                time = "08:00 - 10:00",
-                status = "Finalizada",
-                statusColor = HabitatSecondary,
-                statusBackground = HabitatLightBlue
-            )
+                    HistoryDesignCard(
+                        name = reservation.visitorName,
+                        plate = "No registrada",
+                        parking = reservation.parkingId,
+                        date = reservation.date,
+                        time = reservation.time,
+                        status = reservation.status,
+                        statusColor = when {
+                            isActive -> ParkingAvailable
+                            isCancelled -> ParkingOccupied
+                            else -> HabitatSecondary
+                        },
+                        statusBackground = when {
+                            isActive -> ParkingAvailableContainer
+                            isCancelled -> ParkingOccupiedContainer
+                            else -> HabitatLightBlue
+                        }
+                    )
+                }
+            }
+
 
             Spacer(Modifier.height(8.dp))
         }
@@ -192,10 +198,14 @@ fun HistoryScreen(
 @Composable
 private fun FilterChipDesign(
     text: String,
-    selected: Boolean = false
+    selected: Boolean = false,
+    onClick: () -> Unit = {}
 ) {
 
     Surface(
+        modifier = Modifier.clickable {
+            onClick()
+        },
         color = if (selected) {
             HabitatBlue
         } else {

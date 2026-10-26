@@ -18,5 +18,13 @@ data class ParkingState(
     val isLoading: Boolean = false,
     val error: String? = null,
 
-    val reservationSuccess: Boolean = false
+    val reservationSuccess: Boolean = false,
+
+    val historySearch: String = "",
+    val historyFilter: String = "Todos",
+    val filteredHistory: List<ParkingHistory> = emptyList(),
+    val totalReservations: Int = 0,
+    val totalVisitors: Int = 0,
+    val mostUsedParking: String = "-",
+    val isSavingReservation: Boolean = false
 )

@@ -17,9 +17,14 @@ import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.*
 import androidx.compose.foundation.clickable
+import com.habitatplus.app.features.parqueos.state.ParkingState
+import com.habitatplus.app.features.parqueos.intent.ParkingIntent
+import com.habitatplus.app.features.parqueos.model.ParkingStatus
 
 @Composable
 fun ParkingScreen(
+    state: ParkingState = ParkingState(),
+    onIntent: (ParkingIntent) -> Unit = {},
     onReservationClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onDestinationClick: (HabitatDestination) -> Unit = {}
@@ -126,39 +131,61 @@ fun ParkingScreen(
                 SectionTitle("Parqueos para Visitantes")
 
                 StatusChip(
-                    text = "2 disponibles",
+                    text = "${state.visitorParkings.count {
+                        it.status == ParkingStatus.AVAILABLE
+                    }} disponibles",
                     color = ParkingAvailable,
                     background = ParkingAvailableContainer
                 )
             }
 
-            VisitorCard(
-                code = "V-01",
-                location = "Nivel Calle",
-                status = "Disponible",
-                statusColor = ParkingAvailable,
-                statusBackground = ParkingAvailableContainer,
-                message = "Listo para asignación inmediata",
-                showReserve = true
-            )
 
-            VisitorCard(
-                code = "V-02",
-                location = "Nivel Calle",
-                status = "Ocupado",
-                statusColor = ParkingOccupied,
-                statusBackground = ParkingOccupiedContainer,
-                message = "Carlos Méndez • Hasta las 18:00"
-            )
+            state.visitorParkings.forEach { parking ->
 
-            VisitorCard(
-                code = "V-03",
-                location = "Sótano 1",
-                status = "Mantenimiento",
-                statusColor = ParkingMaintenance,
-                statusBackground = ParkingMaintenanceContainer,
-                message = "Mantenimiento preventivo programado"
-            )
+                val available =
+                    parking.status == ParkingStatus.AVAILABLE
+
+                val occupied =
+                    parking.status == ParkingStatus.OCCUPIED
+
+                VisitorCard(
+                    code = parking.id,
+                    location = if (parking.id == "V-03") {
+                        "Sótano 1"
+                    } else {
+                        "Nivel Calle"
+                    },
+                    status = when (parking.status) {
+                        ParkingStatus.AVAILABLE -> "Disponible"
+                        ParkingStatus.OCCUPIED -> "Ocupado"
+                        ParkingStatus.MAINTENANCE -> "Mantenimiento"
+                        else -> "Asignado"
+                    },
+                    statusColor = when {
+                        available -> ParkingAvailable
+                        occupied -> ParkingOccupied
+                        else -> ParkingMaintenance
+                    },
+                    statusBackground = when {
+                        available -> ParkingAvailableContainer
+                        occupied -> ParkingOccupiedContainer
+                        else -> ParkingMaintenanceContainer
+                    },
+                    message = when {
+                        available -> "Listo para asignación inmediata"
+                        occupied -> "Ocupado hasta ${parking.occupiedUntil ?: "hora no disponible"}"
+                        else -> "Mantenimiento preventivo programado"
+                    },
+                    showReserve = available,
+                    onReserveClick = {
+                        onIntent(
+                            ParkingIntent.StartReservation(parking.id)
+                        )
+                        onReservationClick()
+                    }
+                )
+            }
+
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -178,24 +205,32 @@ fun ParkingScreen(
                 )
             }
 
-            ReservationSummaryCard(
-                name = "Carlos Pérez",
-                parking = "V-02",
-                date = "Hoy • 17:00"
-            )
-
-            ReservationSummaryCard(
-                name = "Andrea López",
-                parking = "V-01",
-                date = "Ayer • 14:30"
-            )
+            state.recentHistory.take(2).forEach { reservation ->
+                ReservationSummaryCard(
+                    name = reservation.visitorName,
+                    parking = reservation.parkingId,
+                    date = "${reservation.date} • ${reservation.time}",
+                    status = reservation.status
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
                 Button(
-                    onClick = onReservationClick,
+                    onClick = {
+                        state.visitorParkings
+                            .firstOrNull {
+                                it.status == ParkingStatus.AVAILABLE
+                            }
+                            ?.let { parking ->
+                                onIntent(
+                                    ParkingIntent.StartReservation(parking.id)
+                                )
+                                onReservationClick()
+                            }
+                    },
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = HabitatBlue
@@ -212,6 +247,7 @@ fun ParkingScreen(
 
 @Composable
 private fun VisitorCard(
+    onReserveClick: () -> Unit = {},
     code: String,
     location: String,
     status: String,
@@ -266,7 +302,7 @@ private fun VisitorCard(
                 )
 
                 Button(
-                    onClick = {},
+                    onClick = onReserveClick,
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(
                         horizontal = 14.dp,
@@ -305,7 +341,8 @@ private fun VisitorCard(
 private fun ReservationSummaryCard(
     name: String,
     parking: String,
-    date: String
+    date: String,
+    status: String
 ) {
 
     ParkingCard {
@@ -336,9 +373,17 @@ private fun ReservationSummaryCard(
             }
 
             StatusChip(
-                text = "Finalizada",
-                color = HabitatSecondary,
-                background = HabitatLightBlue
+                text = status,
+                color = if (status == "Activa") {
+                    ParkingAvailable
+                } else {
+                    HabitatSecondary
+                },
+                background = if (status == "Activa") {
+                    ParkingAvailableContainer
+                } else {
+                    HabitatLightBlue
+                }
             )
         }
     }

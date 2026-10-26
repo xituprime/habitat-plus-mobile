@@ -24,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -37,10 +36,25 @@ import com.habitatplus.app.ui.theme.HabitatSurface
 import com.habitatplus.app.ui.theme.HabitatTextPrimary
 import com.habitatplus.app.ui.theme.HabitatTextSecondary
 import androidx.compose.foundation.layout.ColumnScope
-
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.clickable
 
 @Composable
-fun RegisterScreen() {
+fun RegisterScreen(
+    state: RegisterState = RegisterState(),
+    onEvent: (RegisterEvent) -> Unit = {},
+    onRegisterSuccess: () -> Unit = {},
+    onLoginClick: () -> Unit = {}
+
+) {
+    LaunchedEffect(state.isRegistered) {
+        if (state.isRegistered) {
+            onRegisterSuccess()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -66,7 +80,9 @@ fun RegisterScreen() {
             ) {
                 Text(
                     text = "←",
-                    modifier = Modifier.padding(
+                    modifier = Modifier
+                        .clickable{onLoginClick()}
+                        .padding(
                         horizontal = 12.dp,
                         vertical = 8.dp
                     ),
@@ -119,7 +135,10 @@ fun RegisterScreen() {
                 ) {
                     RegisterField(
                         label = "Nombre",
-                        value = "Carlos"
+                        value = state.name,
+                        onValueChange = {
+                            onEvent(RegisterEvent.NameChanged(it))
+                        }
                     )
                 }
 
@@ -128,19 +147,28 @@ fun RegisterScreen() {
                 ) {
                     RegisterField(
                         label = "Apellido",
-                        value = "Mendoza"
+                        value = state.lastName,
+                        onValueChange = {
+                            onEvent(RegisterEvent.LastNameChanged(it))
+                        }
                     )
                 }
             }
 
             RegisterField(
                 label = "Correo electrónico",
-                value = "carlos.mendoza@ejemplo.com"
+                value = state.email,
+                onValueChange = {
+                    onEvent(RegisterEvent.EmailChanged(it))
+                }
             )
 
             RegisterField(
                 label = "Teléfono (Opcional)",
-                value = "+506 8888 1234"
+                value = state.phone,
+                onValueChange = {
+                    onEvent(RegisterEvent.PhoneChanged(it))
+                }
             )
         }
 
@@ -150,7 +178,10 @@ fun RegisterScreen() {
 
             RegisterField(
                 label = "Apartamento",
-                value = "EJ. A-203"
+                value = state.apartment,
+                onValueChange = {
+                    onEvent(RegisterEvent.ApartmentChanged(it))
+                }
             )
 
             Text(
@@ -166,12 +197,20 @@ fun RegisterScreen() {
 
             RegisterField(
                 label = "Contraseña",
-                value = "Mínimo 8 caracteres"
+                value = state.password,
+                onValueChange = {
+                    onEvent(RegisterEvent.PasswordChanged(it))
+                },
+                isPassword = true
             )
 
             RegisterField(
                 label = "Confirmar contraseña",
-                value = "Repite tu contraseña"
+                value = state.confirmPassword,
+                onValueChange = {
+                    onEvent(RegisterEvent.ConfirmPasswordChanged(it))
+                },
+                isPassword = true
             )
 
             Row(
@@ -207,9 +246,17 @@ fun RegisterScreen() {
                 )
             }
         }
-
+        state.error?.let { error ->
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
         Button(
-            onClick = {},
+            onClick = {
+                onEvent(RegisterEvent.RegisterClicked)
+            },
+            enabled = !state.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
@@ -239,7 +286,10 @@ fun RegisterScreen() {
                 text = "Iniciar sesión",
                 color = HabitatBlue,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable {
+                    onLoginClick()
+                },
             )
         }
 
@@ -280,16 +330,18 @@ private fun RegisterSectionCard(
     }
 }
 
+
 @Composable
 private fun RegisterField(
     label: String,
-    value: String
+    value: String,
+    onValueChange: (String) -> Unit,
+    isPassword: Boolean = false,
+    enabled: Boolean = true
 ) {
-
     Column(
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-
         Text(
             text = label,
             color = HabitatTextPrimary,
@@ -298,14 +350,21 @@ private fun RegisterField(
 
         OutlinedTextField(
             value = value,
-            onValueChange = {},
+            onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
-            readOnly = true,
+            enabled = enabled,
             singleLine = true,
+            visualTransformation =
+                if (isPassword) {
+                    PasswordVisualTransformation()
+                } else {
+                    VisualTransformation.None
+                },
             shape = RoundedCornerShape(12.dp)
         )
     }
 }
+
 
 @Preview(
     name = "02 - Registro",
