@@ -59,6 +59,7 @@ import com.habitatplus.app.features.auth.ui.RegisterViewModel
 import com.habitatplus.app.features.dashboard.intent.DashboardIntent
 import com.habitatplus.app.features.parqueos.viewmodel.ParkingViewModel
 import com.habitatplus.app.features.parqueos.intent.ParkingIntent
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun NavGraph(
@@ -577,8 +578,10 @@ fun NavGraph(
                                 navController.popBackStack()
                             },
                             onSignOut = {
+                                FirebaseAuth.getInstance().signOut()
+
                                 navController.navigate(AppRoute.Login) {
-                                    popUpTo<AppRoute.Home> {
+                                    popUpTo(navController.graph.id) {
                                         inclusive = true
                                     }
                                     launchSingleTop = true

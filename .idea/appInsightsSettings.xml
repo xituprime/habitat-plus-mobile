@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.habitatplus.app" />
+                  <option name="mobileSdkAppId" value="1:420920620609:android:1e4a3146e3aea2e163b8c0" />
+                  <option name="projectId" value="habitatplus-18676" />
+                  <option name="projectNumber" value="420920620609" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
