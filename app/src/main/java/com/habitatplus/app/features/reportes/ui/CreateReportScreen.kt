@@ -1,6 +1,10 @@
-
 package com.habitatplus.app.features.reportes.ui
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,9 +27,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,8 +40,13 @@ import androidx.compose.ui.unit.sp
 import com.habitatplus.app.features.reportes.intent.ReportIntent
 import com.habitatplus.app.features.reportes.model.ReportCategory
 import com.habitatplus.app.features.reportes.state.ReportState
-import com.habitatplus.app.ui.theme.HabitatPlusTheme
 import com.habitatplus.app.ui.components.HabitatBackHeader
+import com.habitatplus.app.ui.theme.HabitatPlusTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.UUID
 
 @Composable
 fun CreateReportScreen(
@@ -44,6 +56,28 @@ fun CreateReportScreen(
     onReportCreated: () -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+
+        if (uri != null) {
+            scope.launch {
+                val savedUri = withContext(Dispatchers.IO) {
+                    saveReportPhoto(context, uri)
+                }
+
+                if (savedUri != null) {
+                    onIntent(
+                        ReportIntent.SelectPhoto(savedUri)
+                    )
+                }
+            }
+        }
+    }
 
     LaunchedEffect(state.reportSubmitted) {
         if (state.reportSubmitted) {
@@ -65,10 +99,12 @@ fun CreateReportScreen(
                 vertical = 8.dp
             )
     ) {
+
         HabitatBackHeader(
             title = "Regresar a reportes",
             onBackClick = onBackClick
         )
+
         Text(
             text = "Crear Reporte",
             fontSize = 22.sp,
@@ -78,8 +114,7 @@ fun CreateReportScreen(
         Text(
             text = "Notifica incidencias para atención inmediata",
             fontSize = 11.sp,
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(
@@ -88,8 +123,7 @@ fun CreateReportScreen(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment =
-                Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
 
             Text(
@@ -115,15 +149,13 @@ fun CreateReportScreen(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
 
             CategoryOption(
                 text = "Iluminación",
                 selected =
-                    state.selectedCategory ==
-                            ReportCategory.LIGHTING,
+                    state.selectedCategory == ReportCategory.LIGHTING,
                 onClick = {
                     onIntent(
                         ReportIntent.SelectCategory(
@@ -136,8 +168,7 @@ fun CreateReportScreen(
             CategoryOption(
                 text = "Agua",
                 selected =
-                    state.selectedCategory ==
-                            ReportCategory.WATER,
+                    state.selectedCategory == ReportCategory.WATER,
                 onClick = {
                     onIntent(
                         ReportIntent.SelectCategory(
@@ -150,8 +181,7 @@ fun CreateReportScreen(
             CategoryOption(
                 text = "Basura",
                 selected =
-                    state.selectedCategory ==
-                            ReportCategory.TRASH,
+                    state.selectedCategory == ReportCategory.TRASH,
                 onClick = {
                     onIntent(
                         ReportIntent.SelectCategory(
@@ -168,15 +198,13 @@ fun CreateReportScreen(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
 
             CategoryOption(
                 text = "Ruido",
                 selected =
-                    state.selectedCategory ==
-                            ReportCategory.NOISE,
+                    state.selectedCategory == ReportCategory.NOISE,
                 onClick = {
                     onIntent(
                         ReportIntent.SelectCategory(
@@ -189,8 +217,7 @@ fun CreateReportScreen(
             CategoryOption(
                 text = "Otro",
                 selected =
-                    state.selectedCategory ==
-                            ReportCategory.OTHER,
+                    state.selectedCategory == ReportCategory.OTHER,
                 onClick = {
                     onIntent(
                         ReportIntent.SelectCategory(
@@ -222,8 +249,7 @@ fun CreateReportScreen(
             Text(
                 text = "${state.description.length}/500",
                 fontSize = 10.sp,
-                color =
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -236,7 +262,6 @@ fun CreateReportScreen(
             onValueChange = { description ->
 
                 if (description.length <= 500) {
-
                     onIntent(
                         ReportIntent.UpdateDescription(
                             description
@@ -283,40 +308,54 @@ fun CreateReportScreen(
                 .fillMaxWidth()
                 .height(105.dp)
                 .clickable {
-                    onAddPhotoClick()
+                    photoPicker.launch(
+                        PickVisualMediaRequest(
+                            ActivityResultContracts
+                                .PickVisualMedia
+                                .ImageOnly
+                        )
+                    )
                 },
             shape = RoundedCornerShape(16.dp),
-            color =
-                MaterialTheme.colorScheme.surfaceVariant
+            color = MaterialTheme.colorScheme.surfaceVariant
         ) {
 
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement =
-                    Arrangement.Center,
-                horizontalAlignment =
-                    Alignment.CenterHorizontally
-            ) {
+            if (!state.selectedPhotoUri.isNullOrBlank()) {
 
-                Text(
-                    text = "Agregar fotografía de evidencia",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
+                ReportPhoto(
+                    photoUri = state.selectedPhotoUri,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentDescription = "Fotografía seleccionada"
                 )
 
-                Text(
-                    text = "Tomar fotografía o seleccionar desde galería",
-                    fontSize = 9.sp,
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            } else {
 
-                Text(
-                    text = "Opcional",
-                    fontSize = 9.sp,
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    Text(
+                        text = "Agregar fotografía de evidencia",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Text(
+                        text = "Seleccionar fotografía desde galería",
+                        fontSize = 9.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = "Opcional",
+                        fontSize = 9.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
 
@@ -339,8 +378,7 @@ fun CreateReportScreen(
                 .height(46.dp),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor =
-                    MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.primary
             )
         ) {
 
@@ -362,8 +400,7 @@ fun CreateReportScreen(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            color =
-                MaterialTheme.colorScheme.primaryContainer
+            color = MaterialTheme.colorScheme.primaryContainer
         ) {
 
             Column(
@@ -379,8 +416,7 @@ fun CreateReportScreen(
                 Text(
                     text = "El personal administrativo recibirá este ticket al instante.",
                     fontSize = 9.sp,
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -388,6 +424,42 @@ fun CreateReportScreen(
         Spacer(
             modifier = Modifier.height(16.dp)
         )
+    }
+}
+
+private fun saveReportPhoto(
+    context: Context,
+    sourceUri: Uri
+): String? {
+    return try {
+        val directory = File(
+            context.filesDir,
+            "report_photos"
+        )
+
+        if (!directory.exists() && !directory.mkdirs()) {
+            return null
+        }
+
+        val destination = File(
+            directory,
+            "${UUID.randomUUID()}.jpg"
+        )
+
+        val input = context.contentResolver
+            .openInputStream(sourceUri)
+            ?: return null
+
+        input.use { source ->
+            destination.outputStream().use { output ->
+                source.copyTo(output)
+            }
+        }
+
+        Uri.fromFile(destination).toString()
+
+    } catch (exception: Exception) {
+        null
     }
 }
 
@@ -440,4 +512,4 @@ private fun CreateReportScreenPreview() {
             state = ReportState()
         )
     }
-} 
+}

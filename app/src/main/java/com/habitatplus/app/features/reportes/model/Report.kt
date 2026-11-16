@@ -8,7 +8,8 @@ data class Report(
     val date: String,
     val lastUpdate: String,
     val status: ReportStatus,
-    val hasPhoto: Boolean = false
+    val hasPhoto: Boolean = false,
+    val photoUri: String? = null
 )
 
 enum class ReportCategory {

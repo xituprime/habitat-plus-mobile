@@ -1,9 +1,7 @@
-
 package com.habitatplus.app.features.areascomunes.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -35,8 +38,14 @@ import com.habitatplus.app.features.areascomunes.model.CommonAreaStatus
 import com.habitatplus.app.features.areascomunes.model.TimeSlot
 import com.habitatplus.app.features.areascomunes.model.TimeSlotStatus
 import com.habitatplus.app.features.areascomunes.state.CommonAreaState
-import com.habitatplus.app.ui.theme.HabitatPlusTheme
 import com.habitatplus.app.ui.components.HabitatBackHeader
+import com.habitatplus.app.ui.theme.HabitatPlusTheme
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.time.temporal.TemporalAdjusters
+import java.util.Locale
 
 @Composable
 fun AreaAvailabilityScreen(
@@ -60,22 +69,98 @@ fun AreaAvailabilityScreen(
         else -> "Reserva comunitaria"
     }
 
+    val locale = Locale("es", "GT")
+
+    val today = remember {
+        LocalDate.now()
+    }
+
+    val maxDate = today.plusDays(30)
+
+    val firstSunday = remember(today) {
+        today.with(
+            TemporalAdjusters.previousOrSame(
+                DayOfWeek.SUNDAY
+            )
+        )
+    }
+
+    val lastSunday = remember(today) {
+        maxDate.with(
+            TemporalAdjusters.previousOrSame(
+                DayOfWeek.SUNDAY
+            )
+        )
+    }
+
+    val maxPage = remember(today) {
+        java.time.temporal.ChronoUnit.WEEKS
+            .between(firstSunday, lastSunday)
+            .toInt()
+    }
+
+    // Estado únicamente visual:
+    // controla qué semana se muestra.
+    var page by remember {
+        mutableIntStateOf(0)
+    }
+
+    val weekStart = firstSunday.plusWeeks(page.toLong())
+
+    val visibleDates = remember(weekStart) {
+        (0L..6L).map {
+            weekStart.plusDays(it)
+        }
+    }
+
+    val selectedDate = state.selectedDate?.let {
+        runCatching {
+            LocalDate.parse(it)
+        }.getOrNull()
+    }
+
+    val dateFormatter = DateTimeFormatter.ofPattern(
+        "EEEE, d 'de' MMMM 'de' yyyy",
+        locale
+    )
+
+    val displayedDate = selectedDate?.format(
+        dateFormatter
+    ) ?: "Selecciona una fecha"
+
+    val monthFormatter = DateTimeFormatter.ofPattern(
+        "MMMM yyyy",
+        locale
+    )
+
+    val monthTitle = weekStart.format(
+        monthFormatter
+    ).replaceFirstChar {
+        it.titlecase(locale)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
+            .background(
+                MaterialTheme.colorScheme.background
+            )
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(
                 horizontal = 16.dp,
                 vertical = 8.dp
             )
     ) {
 
-        // Título
+        // Encabezado original de Axel
+
         HabitatBackHeader(
             title = "Regresar a áreas comunes",
             onBackClick = onBackClick
         )
+
         Text(
             text = "RESERVA COMUNITARIA",
             fontSize = 9.sp,
@@ -100,6 +185,7 @@ fun AreaAvailabilityScreen(
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
+
                 Text(
                     text = areaName,
                     modifier = Modifier.padding(
@@ -113,116 +199,161 @@ fun AreaAvailabilityScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(
+            modifier = Modifier.height(14.dp)
+        )
 
-        // Mes
+        // Mes y navegación entre semanas
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             Text(
-                text = "Septiembre 2024",
+                text = monthTitle,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
             )
 
-            Spacer(modifier = Modifier.weight(1f))
-
             Surface(
+                onClick = {
+                    if (page > 0) {
+                        page--
+                    }
+                },
+                enabled = page > 0,
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
+
                 Text(
-                    text = "Semana 38",
+                    text = "‹",
                     modifier = Modifier.padding(
-                        horizontal = 10.dp,
+                        horizontal = 12.dp,
                         vertical = 5.dp
                     ),
+                    fontSize = 15.sp,
+                    color = if (page > 0) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.width(6.dp)
+            )
+
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+
+                Text(
+                    text = "Semana ${page + 1}",
+                    modifier = Modifier.padding(
+                        horizontal = 9.dp,
+                        vertical = 6.dp
+                    ),
                     fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.width(6.dp)
+            )
+
+            Surface(
+                onClick = {
+                    if (page < maxPage) {
+                        page++
+                    }
+                },
+                enabled = page < maxPage,
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+
+                Text(
+                    text = "›",
+                    modifier = Modifier.padding(
+                        horizontal = 12.dp,
+                        vertical = 5.dp
+                    ),
+                    fontSize = 15.sp,
+                    color = if (page < maxPage) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
 
-        // Selector de días
+        // Calendario semanal: domingo a sábado
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
 
-            DateOption(
-                day = "Mié",
-                number = "13",
-                selected = state.selectedDate == "13 de Septiembre",
-                onClick = {
-                    onIntent(
-                        CommonAreaIntent.SelectDate("13 de Septiembre")
-                    )
-                }
-            )
+            visibleDates.forEach { date ->
 
-            DateOption(
-                day = "Jue",
-                number = "14",
-                selected = state.selectedDate == "14 de Septiembre",
-                onClick = {
-                    onIntent(
-                        CommonAreaIntent.SelectDate("14 de Septiembre")
-                    )
-                }
-            )
+                val isEnabled =
+                    !date.isBefore(today) &&
+                            !date.isAfter(maxDate)
 
-            DateOption(
-                day = "Vie",
-                number = "15",
-                selected = state.selectedDate == "15 de Septiembre",
-                onClick = {
-                    onIntent(
-                        CommonAreaIntent.SelectDate("15 de Septiembre")
+                val dayName = date.dayOfWeek
+                    .getDisplayName(
+                        TextStyle.SHORT,
+                        locale
                     )
-                }
-            )
+                    .replace(".", "")
+                    .replaceFirstChar {
+                        it.titlecase(locale)
+                    }
 
-            DateOption(
-                day = "Sáb",
-                number = "16",
-                selected = state.selectedDate == "16 de Septiembre",
-                onClick = {
-                    onIntent(
-                        CommonAreaIntent.SelectDate("16 de Septiembre")
-                    )
-                }
-            )
-
-            DateOption(
-                day = "Dom",
-                number = "17",
-                selected = state.selectedDate == "17 de Septiembre",
-                onClick = {
-                    onIntent(
-                        CommonAreaIntent.SelectDate("17 de Septiembre")
-                    )
-                }
-            )
+                DateOption(
+                    day = dayName,
+                    number = date.dayOfMonth.toString(),
+                    selected = selectedDate == date,
+                    enabled = isEnabled,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        onIntent(
+                            CommonAreaIntent.SelectDate(
+                                date.toString()
+                            )
+                        )
+                    }
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
 
-        // Agenda
+        // Agenda diaria original
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             Column(
                 modifier = Modifier.weight(1f)
             ) {
+
                 Text(
                     text = "Agenda diaria de $areaName",
                     fontSize = 14.sp,
@@ -236,7 +367,7 @@ fun AreaAvailabilityScreen(
                 )
 
                 Text(
-                    text = "${state.selectedDate ?: "Selecciona una fecha"} • $areaInformation",
+                    text = "$displayedDate • $areaInformation",
                     fontSize = 9.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -246,6 +377,7 @@ fun AreaAvailabilityScreen(
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
+
                 Text(
                     text = "60 min",
                     modifier = Modifier.padding(
@@ -259,34 +391,48 @@ fun AreaAvailabilityScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
 
-        // Horarios
+        // Tarjetas originales de horarios
 
         state.timeSlots.forEach { slot ->
 
             TimeSlotCard(
                 slot = slot,
-                selected = state.selectedTime == slot.startTime,
+                selected =
+                    state.selectedTime == slot.startTime &&
+                            !state.isReservationConfirmed,
                 onClick = {
-                    if (slot.status == TimeSlotStatus.AVAILABLE) {
+
+                    if (
+                        slot.status ==
+                        TimeSlotStatus.AVAILABLE
+                    ) {
+
                         onIntent(
-                            CommonAreaIntent.SelectTime(slot.startTime)
+                            CommonAreaIntent.SelectTime(
+                                slot.startTime
+                            )
                         )
                     }
                 }
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
         }
 
-        // Información
+        // Información reglamentaria original
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
+
             Text(
                 text = "Por reglamento condominal, la reserva es individual de 1 hora exacta sin costo adicional.",
                 modifier = Modifier.padding(12.dp),
@@ -296,16 +442,23 @@ fun AreaAvailabilityScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(
+            modifier = Modifier.height(12.dp)
+        )
 
-        // Continuar
+        // Botón Continuar original
 
         Button(
             onClick = onContinueClick,
             enabled =
                 state.selectedAreaId != null &&
                         state.selectedDate != null &&
-                        state.selectedTime != null,
+                        state.selectedTime != null &&
+                        !state.isReservationConfirmed &&
+                        state.timeSlots.any {
+                            it.startTime == state.selectedTime &&
+                                    it.status == TimeSlotStatus.AVAILABLE
+                        },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp),
@@ -314,8 +467,11 @@ fun AreaAvailabilityScreen(
                 containerColor = MaterialTheme.colorScheme.primary
             )
         ) {
+
             Text(
-                text = if (state.selectedTime != null) {
+                text = if (state.isReservationConfirmed) {
+                    "Horario ya reservado"
+                } else if (state.selectedTime != null) {
                     "Continuar con horario ${state.selectedTime}"
                 } else {
                     "Selecciona un horario"
@@ -325,7 +481,9 @@ fun AreaAvailabilityScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
     }
 }
 
@@ -334,32 +492,54 @@ private fun DateOption(
     day: String,
     number: String,
     selected: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
 
     Surface(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = modifier.clickable(
+            enabled = enabled,
+            onClick = onClick
+        ),
         shape = RoundedCornerShape(12.dp),
-        color = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
+        color = when {
+            selected ->
+                MaterialTheme.colorScheme.primary
+
+            enabled ->
+                MaterialTheme.colorScheme.surfaceVariant
+
+            else ->
+                MaterialTheme.colorScheme.surfaceVariant.copy(
+                    alpha = 0.45f
+                )
         }
     ) {
+
         Column(
             modifier = Modifier.padding(
-                horizontal = 16.dp,
+                horizontal = 2.dp,
                 vertical = 8.dp
             ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Text(
                 text = day,
                 fontSize = 9.sp,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                maxLines = 1,
+                color = when {
+                    selected ->
+                        MaterialTheme.colorScheme.onPrimary
+
+                    enabled ->
+                        MaterialTheme.colorScheme.onSurfaceVariant
+
+                    else ->
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                            alpha = 0.45f
+                        )
                 }
             )
 
@@ -367,10 +547,17 @@ private fun DateOption(
                 text = number,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
+                color = when {
+                    selected ->
+                        MaterialTheme.colorScheme.onPrimary
+
+                    enabled ->
+                        MaterialTheme.colorScheme.onSurface
+
+                    else ->
+                        MaterialTheme.colorScheme.onSurface.copy(
+                            alpha = 0.45f
+                        )
                 }
             )
         }
@@ -390,9 +577,10 @@ private fun TimeSlotCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = isAvailable) {
-                onClick()
-            },
+            .clickable(
+                enabled = isAvailable,
+                onClick = onClick
+            ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) {
@@ -405,6 +593,7 @@ private fun TimeSlotCard(
             defaultElevation = 2.dp
         )
     ) {
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -412,7 +601,7 @@ private fun TimeSlotCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            // Hora grande izquierda
+            // Hora izquierda
 
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -422,6 +611,7 @@ private fun TimeSlotCard(
                     MaterialTheme.colorScheme.surfaceVariant
                 }
             ) {
+
                 Text(
                     text = slot.startTime,
                     modifier = Modifier.padding(
@@ -438,13 +628,16 @@ private fun TimeSlotCard(
                 )
             }
 
-            Spacer(modifier = Modifier.padding(4.dp))
+            Spacer(
+                modifier = Modifier.width(8.dp)
+            )
 
-            // Información
+            // Información del turno
 
             Column(
                 modifier = Modifier.weight(1f)
             ) {
+
                 Text(
                     text = "${slot.startTime} - ${slot.endTime}",
                     fontSize = 12.sp,
@@ -461,7 +654,7 @@ private fun TimeSlotCard(
                     text = if (isAvailable) {
                         "Disponible"
                     } else {
-                        "Reservado"
+                        "No disponible"
                     },
                     fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -488,6 +681,7 @@ private fun TimeSlotCard(
                         MaterialTheme.colorScheme.surfaceVariant
                 }
             ) {
+
                 Text(
                     text = when {
                         selected -> "Elegido"
@@ -523,6 +717,7 @@ private fun TimeSlotCard(
 )
 @Composable
 private fun AreaAvailabilityPhonePreview() {
+
     HabitatPlusTheme {
         AreaAvailabilityScreen(
             state = availabilityPreviewState()
@@ -539,6 +734,7 @@ private fun AreaAvailabilityPhonePreview() {
 )
 @Composable
 private fun AreaAvailabilityFullPreview() {
+
     HabitatPlusTheme {
         AreaAvailabilityScreen(
             state = availabilityPreviewState()
@@ -554,14 +750,19 @@ private fun availabilityPreviewState(): CommonAreaState {
         description = "Cancha polideportiva sintética iluminada, disponible por turnos de 1 hora.",
         locationType = "Exterior",
         availabilityText = "Turnos de 1 hora",
-        features = listOf("Iluminación LED", "Césped sintético"),
+        features = listOf(
+            "Iluminación LED",
+            "Césped sintético"
+        ),
         status = CommonAreaStatus.AVAILABLE
     )
+
+    val previewDate = LocalDate.now().plusDays(1)
 
     return CommonAreaState(
         areas = listOf(area),
         selectedAreaId = "court",
-        selectedDate = "15 de Septiembre",
+        selectedDate = previewDate.toString(),
         selectedTime = "18:00",
         timeSlots = listOf(
             TimeSlot(

@@ -13,5 +13,9 @@ data class CommonAreaState(
 
     val timeSlots: List<TimeSlot> = emptyList(),
 
-    val isReservationConfirmed: Boolean = false
+    val isReservationConfirmed: Boolean = false,
+
+    // Estado de persistencia Room
+    val isSavingReservation: Boolean = false,
+    val errorMessage: String? = null
 )

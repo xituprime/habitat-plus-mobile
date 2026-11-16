@@ -5,13 +5,21 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [
-        ParkingReservationEntity::class
+        ParkingReservationEntity::class,
+        ReportEntity::class,
+        CommonAreaReservationEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class HabitatDatabase : RoomDatabase() {
 
     abstract fun parkingReservationDao():
             ParkingReservationDao
+
+    abstract fun reportDao():
+            ReportDao
+
+    abstract fun commonAreaReservationDao():
+            CommonAreaReservationDao
 }

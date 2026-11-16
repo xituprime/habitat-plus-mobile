@@ -1,4 +1,3 @@
-
 package com.habitatplus.app.features.reportes.ui
 
 import androidx.compose.foundation.Image
@@ -42,6 +41,7 @@ fun ReportDetailScreen(
     onBackClick: () -> Unit = {},
     state: ReportState = ReportState()
 ) {
+
     val report = state.selectedReport
 
     if (report == null) {
@@ -53,6 +53,7 @@ fun ReportDetailScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Text(
                 text = "No se encontró el reporte",
                 fontWeight = FontWeight.Bold,
@@ -102,15 +103,19 @@ fun ReportDetailScreen(
             )
     ) {
 
+        // Encabezado interno
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             Surface(
                 onClick = onBackClick,
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
+
                 Text(
                     text = "←  Reportes",
                     modifier = Modifier.padding(
@@ -133,10 +138,13 @@ fun ReportDetailScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Categoría y estado
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             StatusPill(text = category)
 
             Spacer(modifier = Modifier.weight(1f))
@@ -146,17 +154,22 @@ fun ReportDetailScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Progreso del reporte
+
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
+
             Column(
                 modifier = Modifier.padding(12.dp)
             ) {
+
                 Row(
                     modifier = Modifier.fillMaxWidth()
                 ) {
+
                     Text(
                         text = progressTitle,
                         fontSize = 10.sp,
@@ -188,6 +201,7 @@ fun ReportDetailScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+
                     ProgressLabel(
                         text = "Registrado",
                         selected = true
@@ -213,6 +227,8 @@ fun ReportDetailScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // Descripción
+
         SectionLabel(
             text = "DESCRIPCIÓN DEL INCIDENTE"
         )
@@ -224,6 +240,7 @@ fun ReportDetailScreen(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
+
             Text(
                 text = report.description,
                 modifier = Modifier.padding(16.dp),
@@ -234,9 +251,12 @@ fun ReportDetailScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // Evidencia fotográfica
+
         Row(
             modifier = Modifier.fillMaxWidth()
         ) {
+
             SectionLabel(
                 text = "EVIDENCIA FOTOGRÁFICA"
             )
@@ -244,8 +264,10 @@ fun ReportDetailScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             Text(
-                text = if (report.hasPhoto) {
-                    "1 archivo JPG"
+                text = if (report.hasPhoto ||
+                    !report.photoUri.isNullOrBlank()
+                ) {
+                    "1 archivo"
                 } else {
                     "Sin archivos"
                 },
@@ -256,46 +278,72 @@ fun ReportDetailScreen(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        if (report.hasPhoto) {
-            Image(
-                painter = painterResource(
-                    id = R.drawable.report_evidence_hallway
-                ),
-                contentDescription = "Fotografía de evidencia de demostración",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(170.dp)
-                    .clip(RoundedCornerShape(16.dp)),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(90.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Este reporte no tiene fotografía adjunta",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        when {
+
+            !report.photoUri.isNullOrBlank() -> {
+
+                ReportPhoto(
+                    photoUri = report.photoUri,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(170.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentDescription = "Fotografía de evidencia del reporte"
+                )
+            }
+
+            report.hasPhoto -> {
+
+                Image(
+                    painter = painterResource(
+                        id = R.drawable.report_evidence_hallway
+                    ),
+                    contentDescription = "Fotografía de evidencia de demostración",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(170.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
+
+            else -> {
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(90.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+
+                    Box(
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Este reporte no tiene fotografía adjunta",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Información de fechas y ubicación
+
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
+
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
+
                 InfoRow(
                     title = "Fecha de creación",
                     value = report.date
@@ -319,12 +367,15 @@ fun ReportDetailScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Bitácora de seguimiento
+
         val isLightingDemo = report.id == "REP-2041"
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
             Text(
                 text = "Bitácora de Seguimiento",
                 fontSize = 14.sp,
@@ -337,6 +388,7 @@ fun ReportDetailScreen(
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
+
                 Text(
                     text = if (isLightingDemo) {
                         "3 registros"
@@ -356,6 +408,7 @@ fun ReportDetailScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         if (isLightingDemo) {
+
             TimelineItem(
                 number = "1",
                 title = "Técnico Asignado",
@@ -377,13 +430,15 @@ fun ReportDetailScreen(
                 time = "09:15 AM",
                 description = "Generado por residente Mariana Soto (Depto A-203) mediante canal móvil."
             )
+
         } else {
+
             TimelineItem(
                 number = "1",
-                title = if (report.status == ReportStatus.RESOLVED) {
-                    "Reporte Resuelto"
-                } else {
-                    "Reporte Registrado"
+                title = when (report.status) {
+                    ReportStatus.PENDING -> "Reporte Registrado"
+                    ReportStatus.IN_PROGRESS -> "Reporte En Proceso"
+                    ReportStatus.RESOLVED -> "Reporte Resuelto"
                 },
                 time = report.date,
                 description = when (report.status) {
@@ -407,10 +462,12 @@ fun ReportDetailScreen(
 private fun StatusPill(
     text: String
 ) {
+
     Surface(
         shape = RoundedCornerShape(50),
         color = MaterialTheme.colorScheme.primaryContainer
     ) {
+
         Text(
             text = text,
             modifier = Modifier.padding(
@@ -428,6 +485,7 @@ private fun ProgressLabel(
     text: String,
     selected: Boolean = false
 ) {
+
     Text(
         text = text,
         fontSize = 8.sp,
@@ -448,6 +506,7 @@ private fun ProgressLabel(
 private fun SectionLabel(
     text: String
 ) {
+
     Text(
         text = text,
         fontSize = 9.sp,
@@ -461,7 +520,9 @@ private fun InfoRow(
     title: String,
     value: String
 ) {
+
     Column {
+
         Text(
             text = title,
             fontSize = 9.sp,
@@ -485,16 +546,20 @@ private fun TimelineItem(
     description: String,
     extra: String? = null
 ) {
+
     Row(
         modifier = Modifier.fillMaxWidth()
     ) {
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Surface(
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
+
                 Text(
                     text = number,
                     modifier = Modifier.padding(6.dp),
@@ -522,12 +587,15 @@ private fun TimelineItem(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
+
             Column(
                 modifier = Modifier.padding(12.dp)
             ) {
+
                 Row(
                     modifier = Modifier.fillMaxWidth()
                 ) {
+
                     Text(
                         text = title,
                         fontSize = 11.sp,
@@ -552,6 +620,7 @@ private fun TimelineItem(
                 )
 
                 if (extra != null) {
+
                     Spacer(modifier = Modifier.height(5.dp))
 
                     Text(
@@ -569,6 +638,7 @@ private fun TimelineItem(
 private fun reportCategoryText(
     category: ReportCategory
 ): String {
+
     return when (category) {
         ReportCategory.LIGHTING -> "Iluminación"
         ReportCategory.WATER -> "Agua"
@@ -581,6 +651,7 @@ private fun reportCategoryText(
 private fun reportStatusText(
     status: ReportStatus
 ): String {
+
     return when (status) {
         ReportStatus.PENDING -> "Pendiente"
         ReportStatus.IN_PROGRESS -> "En proceso"
@@ -589,6 +660,7 @@ private fun reportStatusText(
 }
 
 private fun detailPreviewState(): ReportState {
+
     val report = Report(
         id = "REP-2041",
         category = ReportCategory.LIGHTING,
@@ -613,7 +685,9 @@ private fun detailPreviewState(): ReportState {
 )
 @Composable
 private fun ReportDetailPhonePreview() {
+
     HabitatPlusTheme {
+
         ReportDetailScreen(
             state = detailPreviewState()
         )
@@ -629,7 +703,9 @@ private fun ReportDetailPhonePreview() {
 )
 @Composable
 private fun ReportDetailFullPreview() {
+
     HabitatPlusTheme {
+
         ReportDetailScreen(
             state = detailPreviewState()
         )

@@ -1,4 +1,3 @@
-
 package com.habitatplus.app.features.areascomunes.ui
 
 import androidx.compose.foundation.Image
@@ -34,8 +33,13 @@ import com.habitatplus.app.R
 import com.habitatplus.app.features.areascomunes.intent.CommonAreaIntent
 import com.habitatplus.app.features.areascomunes.model.CommonArea
 import com.habitatplus.app.features.areascomunes.model.CommonAreaStatus
+import com.habitatplus.app.features.areascomunes.model.TimeSlot
+import com.habitatplus.app.features.areascomunes.model.TimeSlotStatus
 import com.habitatplus.app.features.areascomunes.state.CommonAreaState
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun ConfirmReservationScreen(
@@ -64,13 +68,18 @@ fun ConfirmReservationScreen(
         it.startTime == selectedTime
     }
 
+    val formattedDate = formatReservationDate(
+        state.selectedDate
+    )
+
     val canConfirm =
         !state.isReservationConfirmed &&
+                !state.isSavingReservation &&
+                !state.isLoading &&
                 selectedArea != null &&
                 state.selectedDate != null &&
                 selectedTime != null &&
-                selectedSlot?.status ==
-                com.habitatplus.app.features.areascomunes.model.TimeSlotStatus.AVAILABLE
+                selectedSlot?.status == TimeSlotStatus.AVAILABLE
 
     Column(
         modifier = Modifier
@@ -87,8 +96,7 @@ fun ConfirmReservationScreen(
             )
     ) {
 
-        // Encabezado interno de la pantalla.
-        // El TopAppBar global lo agrega el equipo después.
+        // Encabezado interno original
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -148,8 +156,7 @@ fun ConfirmReservationScreen(
             modifier = Modifier.height(12.dp)
         )
 
-        // Imagen del área seleccionada.
-        // Mantiene el mismo tamaño del diseño original.
+        // Fotografía del área seleccionada
 
         Image(
             painter = painterResource(
@@ -169,7 +176,7 @@ fun ConfirmReservationScreen(
             modifier = Modifier.height(6.dp)
         )
 
-        // Nombre del área sobre una franja visual
+        // Franja visual del área
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -231,8 +238,7 @@ fun ConfirmReservationScreen(
 
                 ReservationInfoRow(
                     label = "Fecha",
-                    value = state.selectedDate
-                        ?: "Sin fecha seleccionada"
+                    value = formattedDate
                 )
 
                 Spacer(
@@ -278,8 +284,7 @@ fun ConfirmReservationScreen(
                     modifier = Modifier.height(14.dp)
                 )
 
-                // Residente titular.
-                // Datos pintados mientras Axel integra la BD.
+                // Residente titular: datos ficticios
 
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -349,7 +354,7 @@ fun ConfirmReservationScreen(
             modifier = Modifier.height(10.dp)
         )
 
-        // Normativa
+        // Normativa original
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -427,7 +432,7 @@ fun ConfirmReservationScreen(
             modifier = Modifier.height(10.dp)
         )
 
-        // Confirmar
+        // Confirmar reserva con Room
 
         Button(
             onClick = {
@@ -446,17 +451,45 @@ fun ConfirmReservationScreen(
         ) {
 
             Text(
-                text = if (state.isReservationConfirmed) {
-                    "Reserva confirmada"
-                } else {
-                    "Confirmar reserva"
+                text = when {
+                    state.isSavingReservation ->
+                        "Guardando reserva..."
+
+                    state.isReservationConfirmed ->
+                        "Reserva confirmada"
+
+                    else ->
+                        "Confirmar reserva"
                 },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
 
-        // Confirmación visible después del evento MVI
+        // Mostrar errores de Room
+
+        if (state.errorMessage != null) {
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.errorContainer
+            ) {
+
+                Text(
+                    text = state.errorMessage,
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        }
+
+        // Confirmación MVI
 
         if (state.isReservationConfirmed) {
 
@@ -547,14 +580,39 @@ private fun endTimeFor(
 ): String {
 
     return when (startTime) {
-
         "09:00" -> "10:00"
         "10:00" -> "11:00"
         "11:00" -> "12:00"
         "12:00" -> "13:00"
         "18:00" -> "19:00"
-
         else -> "19:00"
+    }
+}
+
+private fun formatReservationDate(
+    date: String?
+): String {
+
+    if (date.isNullOrBlank()) {
+        return "Sin fecha seleccionada"
+    }
+
+    return try {
+
+        val parsedDate = LocalDate.parse(date)
+
+        val formatter = DateTimeFormatter.ofPattern(
+            "EEEE, d 'de' MMMM 'de' yyyy",
+            Locale("es", "GT")
+        )
+
+        parsedDate.format(formatter)
+            .replaceFirstChar {
+                it.titlecase(Locale("es", "GT"))
+            }
+
+    } catch (exception: Exception) {
+        date
     }
 }
 
@@ -576,14 +634,14 @@ private fun reservationPreviewState(): CommonAreaState {
     return CommonAreaState(
         areas = listOf(area),
         selectedAreaId = "court",
-        selectedDate = "15 de Septiembre",
+        selectedDate = LocalDate.now().plusDays(1).toString(),
         selectedTime = "18:00",
         timeSlots = listOf(
-            com.habitatplus.app.features.areascomunes.model.TimeSlot(
+            TimeSlot(
                 startTime = "18:00",
                 endTime = "19:00",
                 description = "Turno vespertino • Con reflectores",
-                status = com.habitatplus.app.features.areascomunes.model.TimeSlotStatus.AVAILABLE
+                status = TimeSlotStatus.AVAILABLE
             )
         )
     )
