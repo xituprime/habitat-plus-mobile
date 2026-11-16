@@ -16,6 +16,10 @@ class ParkingRepository(
         dao.insert(reservation)
     }
 
+    suspend fun cancelReservation(parkingId: String): Int {
+        return dao.cancelReservation(parkingId)
+    }
+
     suspend fun clearReservations() {
         dao.deleteAll()
     }

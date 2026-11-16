@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.data.local
 
 import androidx.room.Dao
@@ -17,11 +18,18 @@ interface ParkingReservationDao {
     @Query(
         "SELECT * FROM parking_reservations ORDER BY id DESC"
     )
-    fun getAllReservations():
-            Flow<List<ParkingReservationEntity>>
+    fun getAllReservations(): Flow<List<ParkingReservationEntity>>
 
     @Query(
-        "DELETE FROM parking_reservations"
+        """
+        UPDATE parking_reservations
+        SET status = 'Cancelada'
+        WHERE parkingId = :parkingId
+        AND status = 'Activa'
+        """
     )
+    suspend fun cancelReservation(parkingId: String): Int
+
+    @Query("DELETE FROM parking_reservations")
     suspend fun deleteAll()
 }

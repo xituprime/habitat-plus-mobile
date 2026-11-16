@@ -5,5 +5,6 @@ data class ParkingHistory(
     val parkingId: String,
     val date: String,
     val time: String,
-    val status: String
+    val status: String,
+    val reservationId: String = ""
 )

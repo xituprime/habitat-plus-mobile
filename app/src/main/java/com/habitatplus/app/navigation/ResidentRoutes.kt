@@ -2,7 +2,7 @@ package com.habitatplus.app.navigation
 
 import android.net.Uri
 
-object ResidentRoutes {
+object ParkingReservationDaoResidentRoutes {
     const val HOME = "resident_home"
     const val ANNOUNCEMENTS = "resident_announcements"
     const val ANNOUNCEMENT_DETAIL = "resident_announcement/{announcementId}"
