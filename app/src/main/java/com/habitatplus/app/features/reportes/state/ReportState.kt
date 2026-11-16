@@ -1,4 +1,3 @@
-
 package com.habitatplus.app.features.reportes.state
 
 import com.habitatplus.app.features.reportes.model.Report
@@ -16,6 +15,7 @@ data class ReportState(
     val selectedCategory: ReportCategory? = null,
     val description: String = "",
     val hasSelectedPhoto: Boolean = false,
+    val selectedPhotoUri: String? = null,
 
     val isSubmitting: Boolean = false,
     val reportSubmitted: Boolean = false,
