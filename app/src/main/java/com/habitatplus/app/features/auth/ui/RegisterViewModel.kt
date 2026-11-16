@@ -1,15 +1,21 @@
+
 package com.habitatplus.app.features.auth.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class RegisterViewModel : ViewModel() {
+
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
 
     private val _state = MutableStateFlow(RegisterState())
     val state: StateFlow<RegisterState> = _state.asStateFlow()
@@ -17,21 +23,18 @@ class RegisterViewModel : ViewModel() {
     fun onEvent(event: RegisterEvent) {
         when (event) {
             is RegisterEvent.NameChanged ->
-                _state.update { it.copy(name = event.value, error = null) }
-
-            is RegisterEvent.EmailChanged ->
-                _state.update { it.copy(email = event.value, error = null) }
-
-            is RegisterEvent.PasswordChanged ->
-                _state.update { it.copy(password = event.value, error = null) }
-
-            is RegisterEvent.ConfirmPasswordChanged ->
                 _state.update {
-                    it.copy(confirmPassword = event.value, error = null)
+                    it.copy(name = event.value, error = null)
                 }
+
             is RegisterEvent.LastNameChanged ->
                 _state.update {
                     it.copy(lastName = event.value, error = null)
+                }
+
+            is RegisterEvent.EmailChanged ->
+                _state.update {
+                    it.copy(email = event.value, error = null)
                 }
 
             is RegisterEvent.PhoneChanged ->
@@ -42,6 +45,16 @@ class RegisterViewModel : ViewModel() {
             is RegisterEvent.ApartmentChanged ->
                 _state.update {
                     it.copy(apartment = event.value, error = null)
+                }
+
+            is RegisterEvent.PasswordChanged ->
+                _state.update {
+                    it.copy(password = event.value, error = null)
+                }
+
+            is RegisterEvent.ConfirmPasswordChanged ->
+                _state.update {
+                    it.copy(confirmPassword = event.value, error = null)
                 }
 
             RegisterEvent.RegisterClicked -> register()
@@ -56,17 +69,19 @@ class RegisterViewModel : ViewModel() {
 
         if (current.isLoading || current.isRegistered) return
 
+        val email = current.email.trim()
+
         val error = when {
             current.name.isBlank() ||
-                    current.email.isBlank() ||
-                    current.password.isBlank() ||
                     current.lastName.isBlank() ||
+                    email.isBlank() ||
                     current.apartment.isBlank() ||
+                    current.password.isBlank() ||
                     current.confirmPassword.isBlank() ->
-                "Completa todos los campos."
+                "Completa todos los campos obligatorios."
 
             !android.util.Patterns.EMAIL_ADDRESS
-                .matcher(current.email.trim()).matches() ->
+                .matcher(email).matches() ->
                 "Ingresa un correo válido."
 
             current.password.length < 8 ->
@@ -83,19 +98,56 @@ class RegisterViewModel : ViewModel() {
             return
         }
 
+        _state.update {
+            it.copy(isLoading = true, error = null)
+        }
+
         viewModelScope.launch {
-            _state.update {
-                it.copy(isLoading = true, error = null)
-            }
+            try {
+                val result =
+                    auth.createUserWithEmailAndPassword(
+                        email,
+                        current.password
+                    ).await()
 
-            delay(500)
+                val user = result.user
+                    ?: throw IllegalStateException(
+                        "No se pudo obtener el usuario creado."
+                    )
 
-            // Registro simulado: no crea una cuenta real.
-            _state.update {
-                it.copy(
-                    isLoading = false,
-                    isRegistered = true
+                val userData = hashMapOf(
+                    "uid" to user.uid,
+                    "name" to current.name.trim(),
+                    "lastName" to current.lastName.trim(),
+                    "email" to email,
+                    "phone" to current.phone.trim(),
+                    "apartment" to current.apartment.trim(),
+                    "role" to "resident",
+                    "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
                 )
+
+                firestore.collection("users")
+                    .document(user.uid)
+                    .set(userData)
+                    .await()
+
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        isRegistered = true,
+                        error = null
+                    )
+                }
+
+            } catch (exception: Exception) {
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        isRegistered = false,
+                        error = exception.localizedMessage
+                            ?: "No se pudo crear la cuenta."
+                    )
+                }
             }
         }
     }

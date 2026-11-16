@@ -1,48 +1,39 @@
+
 package com.habitatplus.app.features.auth.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class LoginViewModel : ViewModel() {
 
-    private val _state = MutableStateFlow(LoginState())
+    private val auth = FirebaseAuth.getInstance()
 
-    val state: StateFlow<LoginState> =
-        _state.asStateFlow()
+    private val _state = MutableStateFlow(LoginState())
+    val state: StateFlow<LoginState> = _state.asStateFlow()
 
     fun onEvent(event: LoginEvent) {
         when (event) {
-            is LoginEvent.EmailChanged -> {
+            is LoginEvent.EmailChanged ->
                 _state.update {
-                    it.copy(
-                        email = event.value,
-                        error = null
-                    )
+                    it.copy(email = event.value, error = null)
                 }
-            }
 
-            is LoginEvent.PasswordChanged -> {
+            is LoginEvent.PasswordChanged ->
                 _state.update {
-                    it.copy(
-                        password = event.value,
-                        error = null
-                    )
+                    it.copy(password = event.value, error = null)
                 }
-            }
 
             LoginEvent.LoginClicked -> login()
 
-            LoginEvent.ClearError -> {
-                _state.update {
-                    it.copy(error = null)
-                }
-            }
+            LoginEvent.ClearError ->
+                _state.update { it.copy(error = null) }
         }
     }
 
@@ -51,54 +42,51 @@ class LoginViewModel : ViewModel() {
 
         if (current.isLoading || current.isLoggedIn) return
 
-        if (current.email.isBlank() ||
-            current.password.isBlank()
-        ) {
+        val email = current.email.trim()
+        val password = current.password
+
+        if (email.isBlank() || password.isBlank()) {
             _state.update {
-                it.copy(
-                    error = "Completa todos los campos."
-                )
+                it.copy(error = "Completa todos los campos.")
             }
             return
         }
 
         if (!android.util.Patterns.EMAIL_ADDRESS
-                .matcher(current.email.trim()).matches()
+                .matcher(email).matches()
         ) {
             _state.update {
-                it.copy(
-                    error = "Ingresa un correo válido."
-                )
+                it.copy(error = "Ingresa un correo válido.")
             }
             return
         }
 
-        if (current.password.length < 8) {
-            _state.update {
-                it.copy(
-                    error = "La contraseña debe tener al menos 8 caracteres."
-                )
-            }
-            return
+        _state.update {
+            it.copy(isLoading = true, error = null)
         }
 
         viewModelScope.launch {
-            _state.update {
-                it.copy(
-                    isLoading = true,
-                    error = null
-                )
-            }
+            try {
+                auth.signInWithEmailAndPassword(
+                    email,
+                    password
+                ).await()
 
-            delay(500)
-
-            // Autenticación simulada para el entregable.
-            // No valida credenciales contra un servidor.
-            _state.update {
-                it.copy(
-                    isLoading = false,
-                    isLoggedIn = true
-                )
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        isLoggedIn = true,
+                        error = null
+                    )
+                }
+            } catch (exception: Exception) {
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        isLoggedIn = false,
+                        error = "Correo o contraseña incorrectos, o no se pudo conectar."
+                    )
+                }
             }
         }
     }
