@@ -1,6 +1,11 @@
 package com.habitatplus.app.features.areascomunes.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.habitatplus.app.data.local.CommonAreaReservationEntity
+import com.habitatplus.app.data.local.DatabaseProvider
+import com.habitatplus.app.data.repository.CommonAreaReservationRepository
 import com.habitatplus.app.features.areascomunes.intent.CommonAreaIntent
 import com.habitatplus.app.features.areascomunes.model.CommonArea
 import com.habitatplus.app.features.areascomunes.model.CommonAreaStatus
@@ -11,8 +16,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeParseException
+import java.time.temporal.ChronoUnit
 
-class CommonAreaViewModel : ViewModel() {
+class CommonAreaViewModel(
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val repository = CommonAreaReservationRepository(
+        DatabaseProvider
+            .getDatabase(application)
+            .commonAreaReservationDao()
+    )
 
     private val initialAreas = listOf(
         CommonArea(
@@ -21,7 +39,10 @@ class CommonAreaViewModel : ViewModel() {
             description = "Capacidad 50 personas, equipado con mobiliario, cocina auxiliar y climatización.",
             locationType = "Interior",
             availabilityText = "Hasta 50 personas",
-            features = listOf("Climatizado", "Cocina"),
+            features = listOf(
+                "Climatizado",
+                "Cocina"
+            ),
             status = CommonAreaStatus.AVAILABLE
         ),
         CommonArea(
@@ -30,7 +51,10 @@ class CommonAreaViewModel : ViewModel() {
             description = "Cancha polideportiva sintética iluminada, disponible por turnos de 1 hora.",
             locationType = "Exterior",
             availabilityText = "Turnos de 1 hora",
-            features = listOf("Iluminación LED", "Césped sintético"),
+            features = listOf(
+                "Iluminación LED",
+                "Césped sintético"
+            ),
             status = CommonAreaStatus.AVAILABLE
         ),
         CommonArea(
@@ -39,7 +63,10 @@ class CommonAreaViewModel : ViewModel() {
             description = "Área acuática y solárium, normas de higiene vigentes.",
             locationType = "Solárium",
             availabilityText = "Normas vigentes",
-            features = listOf("Solárium", "Duchas previas"),
+            features = listOf(
+                "Solárium",
+                "Duchas previas"
+            ),
             status = CommonAreaStatus.AVAILABLE
         ),
         CommonArea(
@@ -48,39 +75,51 @@ class CommonAreaViewModel : ViewModel() {
             description = "Parrilla techada con mesas exteriores y lavadero.",
             locationType = "Techado",
             availabilityText = "Parrilla & Mesas",
-            features = listOf("Techado", "Lavadero"),
+            features = listOf(
+                "Techado",
+                "Lavadero"
+            ),
             status = CommonAreaStatus.AVAILABLE
         )
     )
 
+    // Reservas de demostración.
+    // Siguen siendo datos falsos y no se guardan en Room.
     private val demoReservations = setOf(
-        Triple("court", "15 de Septiembre", "10:00"),
-        Triple("pool", "15 de Septiembre", "12:00"),
-        Triple("social-room", "16 de Septiembre", "18:00"),
-        Triple("grill", "17 de Septiembre", "11:00")
+        Triple("court", 0L, "10:00"),
+        Triple("pool", 1L, "12:00"),
+        Triple("social-room", 2L, "18:00"),
+        Triple("grill", 3L, "11:00")
     )
 
-    private val userReservations =
-        mutableSetOf<Triple<String, String, String>>()
+    // Copia local de las reservas leídas desde Room.
+    private var savedReservations:
+            Set<Triple<String, String, String>> = emptySet()
 
-    private val validDates = listOf(
-        "13 de Septiembre",
-        "14 de Septiembre",
-        "15 de Septiembre",
-        "16 de Septiembre",
-        "17 de Septiembre"
-    )
+    // No permitimos seleccionar horarios hasta que
+    // Room haya terminado la primera lectura.
+    private var reservationsLoaded = false
 
     private val _state = MutableStateFlow(
-        CommonAreaState(areas = initialAreas)
+        CommonAreaState(
+            isLoading = true,
+            areas = initialAreas
+        )
     )
 
     val state: StateFlow<CommonAreaState> =
         _state.asStateFlow()
 
+    init {
+        observeSavedReservations()
+    }
+
     fun onIntent(intent: CommonAreaIntent) {
         when (intent) {
-            CommonAreaIntent.LoadAreas -> loadAreas()
+
+            CommonAreaIntent.LoadAreas -> {
+                loadAreas()
+            }
 
             CommonAreaIntent.LoadAvailability -> {
                 loadAvailability()
@@ -104,21 +143,86 @@ class CommonAreaViewModel : ViewModel() {
         }
     }
 
+    private fun observeSavedReservations() {
+        viewModelScope.launch {
+            try {
+                repository.reservations.collect { reservations ->
+
+                    savedReservations = reservations.map {
+                        Triple(
+                            it.areaId,
+                            it.date,
+                            it.startTime
+                        )
+                    }.toSet()
+
+                    reservationsLoaded = true
+
+                    val current = _state.value
+
+                    val areaId = current.selectedAreaId
+                    val date = parseValidDate(current.selectedDate)
+
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            timeSlots = if (
+                                areaId != null &&
+                                date != null
+                            ) {
+                                createTimeSlots(areaId, date)
+                            } else {
+                                it.timeSlots
+                            }
+                        )
+                    }
+                }
+            } catch (exception: Exception) {
+                reservationsLoaded = false
+
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage =
+                            "No se pudieron cargar las reservas locales."
+                    )
+                }
+            }
+        }
+    }
+
+    private fun isValidDate(date: LocalDate): Boolean {
+        val today = LocalDate.now()
+
+        return !date.isBefore(today) &&
+                !date.isAfter(today.plusDays(30))
+    }
+
+    private fun parseValidDate(value: String?): LocalDate? {
+        if (value == null) return null
+
+        return try {
+            LocalDate.parse(value).takeIf(::isValidDate)
+        } catch (exception: DateTimeParseException) {
+            null
+        }
+    }
+
     private fun loadAreas() {
         _state.update {
             it.copy(
-                isLoading = false,
-                areas = initialAreas
+                areas = initialAreas,
+                isLoading = !reservationsLoaded
             )
         }
     }
 
     private fun selectArea(areaId: String) {
-        val selectedArea = initialAreas.firstOrNull {
+        val area = initialAreas.firstOrNull {
             it.id == areaId
         } ?: return
 
-        if (selectedArea.status != CommonAreaStatus.AVAILABLE) {
+        if (area.status != CommonAreaStatus.AVAILABLE) {
             return
         }
 
@@ -128,23 +232,9 @@ class CommonAreaViewModel : ViewModel() {
                 selectedDate = null,
                 selectedTime = null,
                 timeSlots = emptyList(),
-                isReservationConfirmed = false
-            )
-        }
-    }
-
-    private fun selectDate(date: String) {
-        val current = _state.value
-        val areaId = current.selectedAreaId ?: return
-
-        if (date !in validDates) return
-
-        _state.update {
-            it.copy(
-                selectedDate = date,
-                selectedTime = null,
                 isReservationConfirmed = false,
-                timeSlots = createTimeSlots(areaId, date)
+                isSavingReservation = false,
+                errorMessage = null
             )
         }
     }
@@ -153,24 +243,74 @@ class CommonAreaViewModel : ViewModel() {
         val current = _state.value
         val areaId = current.selectedAreaId ?: return
 
-        val date = current.selectedDate
-            ?.takeIf { it in validDates }
-            ?: "15 de Septiembre"
+        val date = parseValidDate(current.selectedDate)
+            ?: LocalDate.now()
 
         _state.update {
             it.copy(
-                isLoading = false,
-                selectedDate = date,
+                isLoading = !reservationsLoaded,
+                selectedDate = date.toString(),
                 selectedTime = null,
-                timeSlots = createTimeSlots(areaId, date),
-                isReservationConfirmed = false
+                timeSlots = if (reservationsLoaded) {
+                    createTimeSlots(areaId, date)
+                } else {
+                    emptyList()
+                },
+                isReservationConfirmed = false,
+                errorMessage = null
             )
         }
     }
 
+    private fun selectDate(date: String) {
+        val current = _state.value
+        val areaId = current.selectedAreaId ?: return
+        val parsedDate = parseValidDate(date) ?: return
+
+        _state.update {
+            it.copy(
+                selectedDate = parsedDate.toString(),
+                selectedTime = null,
+                timeSlots = if (reservationsLoaded) {
+                    createTimeSlots(areaId, parsedDate)
+                } else {
+                    emptyList()
+                },
+                isReservationConfirmed = false,
+                errorMessage = null
+            )
+        }
+    }
+
+    private fun isDemoReserved(
+        areaId: String,
+        date: LocalDate,
+        time: String
+    ): Boolean {
+        val offset = ChronoUnit.DAYS.between(
+            LocalDate.now(),
+            date
+        )
+
+        return Triple(areaId, offset, time) in demoReservations
+    }
+
+    private fun isReserved(
+        areaId: String,
+        date: LocalDate,
+        time: String
+    ): Boolean {
+        return isDemoReserved(areaId, date, time) ||
+                Triple(
+                    areaId,
+                    date.toString(),
+                    time
+                ) in savedReservations
+    }
+
     private fun createTimeSlots(
         areaId: String,
-        date: String
+        date: LocalDate
     ): List<TimeSlot> {
 
         val schedules = listOf(
@@ -182,46 +322,33 @@ class CommonAreaViewModel : ViewModel() {
         )
 
         return schedules.map { (start, end) ->
-            val key = Triple(areaId, date, start)
 
-            val reserved =
-                key in demoReservations ||
-                        key in userReservations
+            val reserved = isReserved(areaId, date, start)
+
+            val pastTime = date == LocalDate.now() &&
+                    !LocalTime.parse(start).isAfter(
+                        LocalTime.now()
+                    )
+
+            val unavailable = reserved || pastTime
 
             val description = when {
-                reserved &&
-                        areaId == "court" &&
-                        date == "15 de Septiembre" &&
-                        start == "10:00" ->
-                    "Ocupado por depto B-104"
-
-                reserved ->
-                    "Horario ocupado"
-
-                start == "09:00" ->
-                    "Turno matutino"
-
-                start == "11:00" ->
-                    "Turno mediodía"
-
-                start == "12:00" ->
-                    "Turno soleado"
-
+                reserved -> "Horario ocupado"
+                pastTime -> "Horario ya transcurrido"
+                start == "09:00" -> "Turno matutino"
+                start == "11:00" -> "Turno mediodía"
+                start == "12:00" -> "Turno soleado"
                 start == "18:00" && areaId == "court" ->
                     "Turno vespertino • Con reflectores"
-
-                start == "18:00" ->
-                    "Turno vespertino"
-
-                else ->
-                    "Turno disponible de 1 hora"
+                start == "18:00" -> "Turno vespertino"
+                else -> "Turno disponible de 1 hora"
             }
 
             TimeSlot(
                 startTime = start,
                 endTime = end,
                 description = description,
-                status = if (reserved) {
+                status = if (unavailable) {
                     TimeSlotStatus.RESERVED
                 } else {
                     TimeSlotStatus.AVAILABLE
@@ -234,23 +361,29 @@ class CommonAreaViewModel : ViewModel() {
         val current = _state.value
 
         if (
-            current.selectedAreaId == null ||
-            current.selectedDate == null ||
+            !reservationsLoaded ||
+            current.isLoading ||
+            current.isSavingReservation ||
             current.isReservationConfirmed
         ) return
 
-        val selectedSlot = current.timeSlots.firstOrNull {
-            it.startTime == time
-        }
+        val areaId = current.selectedAreaId ?: return
+        val date = parseValidDate(current.selectedDate) ?: return
 
-        if (selectedSlot?.status != TimeSlotStatus.AVAILABLE) {
+        val slot = createTimeSlots(areaId, date)
+            .firstOrNull {
+                it.startTime == time
+            }
+
+        if (slot?.status != TimeSlotStatus.AVAILABLE) {
             return
         }
 
         _state.update {
             it.copy(
                 selectedTime = time,
-                isReservationConfirmed = false
+                timeSlots = createTimeSlots(areaId, date),
+                errorMessage = null
             )
         }
     }
@@ -258,38 +391,75 @@ class CommonAreaViewModel : ViewModel() {
     private fun confirmReservation() {
         val current = _state.value
 
-        // Evitar confirmar dos veces
-        if (current.isReservationConfirmed) return
+        if (
+            !reservationsLoaded ||
+            current.isLoading ||
+            current.isSavingReservation ||
+            current.isReservationConfirmed
+        ) return
 
         val areaId = current.selectedAreaId ?: return
-        val date = current.selectedDate ?: return
+        val date = parseValidDate(current.selectedDate) ?: return
         val time = current.selectedTime ?: return
 
-        val slot = current.timeSlots.firstOrNull {
-            it.startTime == time
-        }
+        val slot = createTimeSlots(areaId, date)
+            .firstOrNull {
+                it.startTime == time
+            }
 
         if (slot?.status != TimeSlotStatus.AVAILABLE) {
             return
         }
 
-        val key = Triple(areaId, date, time)
-
-        if (
-            key in demoReservations ||
-            key in userReservations
-        ) return
-
-        userReservations.add(key)
-
         _state.update {
             it.copy(
-                timeSlots = createTimeSlots(areaId, date),
-                selectedTime = time,
-                selectedDate = date,
-                selectedAreaId = areaId,
-                isReservationConfirmed = true
+                isSavingReservation = true,
+                errorMessage = null
             )
+        }
+
+        viewModelScope.launch {
+            try {
+                // Room tiene un índice único que impide
+                // duplicar área + fecha + horario.
+
+                repository.saveReservation(
+                    CommonAreaReservationEntity(
+                        areaId = areaId,
+                        date = date.toString(),
+                        startTime = time,
+                        endTime = slot.endTime
+                    )
+                )
+
+                // Solo después de guardar correctamente
+                // confirmamos la reserva en MVI.
+
+                savedReservations = savedReservations +
+                        Triple(areaId, date.toString(), time)
+
+                _state.update {
+                    it.copy(
+                        isSavingReservation = false,
+                        isReservationConfirmed = true,
+                        selectedAreaId = areaId,
+                        selectedDate = date.toString(),
+                        selectedTime = time,
+                        timeSlots = createTimeSlots(areaId, date),
+                        errorMessage = null
+                    )
+                }
+
+            } catch (exception: Exception) {
+                _state.update {
+                    it.copy(
+                        isSavingReservation = false,
+                        isReservationConfirmed = false,
+                        errorMessage =
+                            "No se pudo guardar la reserva localmente."
+                    )
+                }
+            }
         }
     }
 }
