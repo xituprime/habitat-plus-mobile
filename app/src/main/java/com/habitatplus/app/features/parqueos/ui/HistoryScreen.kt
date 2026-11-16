@@ -1,5 +1,8 @@
+
 package com.habitatplus.app.features.parqueos.ui
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,13 +18,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.habitatplus.app.R
+import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 import com.habitatplus.app.features.parqueos.state.ParkingState
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.*
-import com.habitatplus.app.features.parqueos.model.ParkingHistory
-import com.habitatplus.app.features.parqueos.intent.ParkingIntent
-import androidx.compose.foundation.clickable
 
 @Composable
 fun HistoryScreen(
@@ -29,7 +30,7 @@ fun HistoryScreen(
     onBackClick: () -> Unit = {},
     onDestinationClick: (HabitatDestination) -> Unit = {},
     onIntent: (ParkingIntent) -> Unit = {}
-){
+) {
     HabitatScaffold(
         title = "Historial de Parqueo",
         selectedDestination = HabitatDestination.PARKING,
@@ -46,25 +47,22 @@ fun HistoryScreen(
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-
             Spacer(Modifier.height(4.dp))
 
             OutlinedTextField(
                 value = state.historySearch,
                 onValueChange = {
-                    onIntent(ParkingIntent.HistorySearchChanged(it))
+                    onIntent(
+                        ParkingIntent.HistorySearchChanged(it)
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
-                    Text(
-                        text = "Buscar por nombre, placa o fecha"
-                    )
+                    Text("Buscar por nombre, parqueo o fecha")
                 },
                 leadingIcon = {
                     Icon(
-                        painter = painterResource(
-                            R.drawable.ic_search
-                        ),
+                        painter = painterResource(R.drawable.ic_search),
                         contentDescription = null
                     )
                 },
@@ -73,17 +71,17 @@ fun HistoryScreen(
             )
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-
                 listOf(
                     "Todos",
                     "Activas",
                     "Finalizadas",
                     "Canceladas"
                 ).forEach { filter ->
-
                     FilterChipDesign(
                         text = filter,
                         selected = state.historyFilter == filter,
@@ -97,7 +95,7 @@ fun HistoryScreen(
             }
 
             Text(
-                text = "Resumen de Septiembre",
+                text = "Resumen de reservas",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = HabitatTextPrimary
@@ -113,14 +111,12 @@ fun HistoryScreen(
                     defaultElevation = 2.dp
                 )
             ) {
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-
                     StatisticItem(
                         number = state.totalReservations.toString(),
                         label = "Reservas\nregistradas"
@@ -155,10 +151,17 @@ fun HistoryScreen(
                 color = HabitatTextPrimary
             )
 
+            if (state.error != null) {
+                Text(
+                    text = state.error,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 12.sp
+                )
+            }
 
             if (state.filteredHistory.isEmpty()) {
                 Text(
-                    text = "Todavía no tienes reservas registradas.",
+                    text = "No hay reservas para mostrar.",
                     color = HabitatTextSecondary,
                     fontSize = 12.sp
                 )
@@ -184,11 +187,21 @@ fun HistoryScreen(
                             isActive -> ParkingAvailableContainer
                             isCancelled -> ParkingOccupiedContainer
                             else -> HabitatLightBlue
+                        },
+                        onCancel = if (isActive) {
+                            {
+                                onIntent(
+                                    ParkingIntent.CancelReservation(
+                                        reservation.parkingId
+                                    )
+                                )
+                            }
+                        } else {
+                            null
                         }
                     )
                 }
             }
-
 
             Spacer(Modifier.height(8.dp))
         }
@@ -201,36 +214,21 @@ private fun FilterChipDesign(
     selected: Boolean = false,
     onClick: () -> Unit = {}
 ) {
-
     Surface(
-        modifier = Modifier.clickable {
-            onClick()
-        },
-        color = if (selected) {
-            HabitatBlue
-        } else {
-            HabitatSurface
-        },
+        modifier = Modifier.clickable { onClick() },
+        color = if (selected) HabitatBlue else HabitatSurface,
         shape = RoundedCornerShape(20.dp),
-        tonalElevation = if (selected) {
-            0.dp
-        } else {
-            1.dp
-        }
+        tonalElevation = if (selected) 0.dp else 1.dp
     ) {
-
         Text(
             text = text,
             modifier = Modifier.padding(
                 horizontal = 10.dp,
                 vertical = 7.dp
             ),
-            color = if (selected) {
-                Color.White
-            } else {
-                HabitatTextSecondary
-            },
-            fontSize = 9.sp,
+            color = if (selected) Color.White
+            else HabitatTextSecondary,
+            fontSize = 10.sp,
             fontWeight = if (selected) {
                 FontWeight.SemiBold
             } else {
@@ -245,11 +243,9 @@ private fun StatisticItem(
     number: String,
     label: String
 ) {
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
         Text(
             text = number,
             color = HabitatBlue,
@@ -275,9 +271,9 @@ private fun HistoryDesignCard(
     time: String,
     status: String,
     statusColor: Color,
-    statusBackground: Color
+    statusBackground: Color,
+    onCancel: (() -> Unit)? = null
 ) {
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -288,23 +284,20 @@ private fun HistoryDesignCard(
             defaultElevation = 2.dp
         )
     ) {
-
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-
                 Column {
-
                     Text(
                         text = name,
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = HabitatTextPrimary
                     )
 
                     Text(
@@ -318,7 +311,6 @@ private fun HistoryDesignCard(
                     color = statusBackground,
                     shape = RoundedCornerShape(20.dp)
                 ) {
-
                     Text(
                         text = status,
                         modifier = Modifier.padding(
@@ -332,26 +324,23 @@ private fun HistoryDesignCard(
                 }
             }
 
-            HorizontalDivider(
-                color = HabitatLightBlue
-            )
+            HorizontalDivider(color = HabitatLightBlue)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-
                 Column {
                     Text(
                         text = "PARQUEO",
                         fontSize = 8.sp,
                         color = HabitatTextSecondary
                     )
-
                     Text(
                         text = parking,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = HabitatTextPrimary
                     )
                 }
 
@@ -361,10 +350,10 @@ private fun HistoryDesignCard(
                         fontSize = 8.sp,
                         color = HabitatTextSecondary
                     )
-
                     Text(
                         text = date,
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        color = HabitatTextPrimary
                     )
                 }
 
@@ -376,10 +365,66 @@ private fun HistoryDesignCard(
                         fontSize = 8.sp,
                         color = HabitatTextSecondary
                     )
-
                     Text(
                         text = time,
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        color = HabitatTextPrimary
+                    )
+                }
+            }
+
+            if (onCancel != null) {
+                HorizontalDivider(color = HabitatLightBlue)
+
+                var showConfirmation =
+                    androidx.compose.runtime.remember {
+                        androidx.compose.runtime.mutableStateOf(false)
+                    }
+
+                OutlinedButton(
+                    onClick = {
+                        showConfirmation.value = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Cancelar reserva")
+                }
+
+                if (showConfirmation.value) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            showConfirmation.value = false
+                        },
+                        title = {
+                            Text("Cancelar reserva")
+                        },
+                        text = {
+                            Text(
+                                "¿Deseas cancelar la reserva del parqueo $parking?"
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    showConfirmation.value = false
+                                    onCancel()
+                                }
+                            ) {
+                                Text("Sí, cancelar")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = {
+                                    showConfirmation.value = false
+                                }
+                            ) {
+                                Text("Volver")
+                            }
+                        }
                     )
                 }
             }
