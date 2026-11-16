@@ -60,6 +60,7 @@ import com.habitatplus.app.features.dashboard.intent.DashboardIntent
 import com.habitatplus.app.features.parqueos.viewmodel.ParkingViewModel
 import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 import com.google.firebase.auth.FirebaseAuth
+import com.habitatplus.app.features.parqueos.state.ParkingState
 
 @Composable
 fun NavGraph(
@@ -78,6 +79,10 @@ fun NavGraph(
     val commonAreaViewModel: CommonAreaViewModel = viewModel()
     val parkingViewModel: ParkingViewModel = viewModel()
     val parkingState by parkingViewModel.state.collectAsState()
+
+    val clearParkingSession: () -> Unit = {
+        parkingViewModel.clearSession()
+    }
 
     // States
     val dashboardState by dashboardViewModel.state.collectAsState()
@@ -317,6 +322,11 @@ fun NavGraph(
 
 
                     composable<AppRoute.Parking> {
+
+                        LaunchedEffect(Unit) {
+                            parkingViewModel.onIntent(ParkingIntent.LoadData)
+                        }
+
                         ParkingScreen(
                             state = parkingState,
                             onIntent = parkingViewModel::onIntent,
@@ -579,6 +589,8 @@ fun NavGraph(
                             },
                             onSignOut = {
                                 FirebaseAuth.getInstance().signOut()
+
+                                clearParkingSession()
 
                                 navController.navigate(AppRoute.Login) {
                                     popUpTo(navController.graph.id) {

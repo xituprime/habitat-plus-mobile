@@ -192,7 +192,7 @@ fun HistoryScreen(
                             {
                                 onIntent(
                                     ParkingIntent.CancelReservation(
-                                        reservation.parkingId
+                                        reservation.reservationId
                                     )
                                 )
                             }
