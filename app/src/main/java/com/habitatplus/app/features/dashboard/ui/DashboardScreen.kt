@@ -398,13 +398,7 @@ private fun DashboardReservationSection(
                 onIntent(DashboardIntent.OpenAreas)
             }
         ) {
-            Text(
-                text = if (reservation == null) {
-                    "Consultar áreas"
-                } else {
-                    "Ver reserva"
-                }
-            )
+            Text("Consultar áreas")
         }
     }
 }
@@ -462,7 +456,7 @@ private fun DashboardReportsSection(
                 onIntent(DashboardIntent.OpenReports)
             }
         ) {
-            Text("Ver detalles")
+            Text("Ver reportes")
         }
     }
 }
