@@ -1,4 +1,3 @@
-
 package com.habitatplus.app.features.parqueos.ui
 
 import androidx.compose.foundation.clickable
@@ -9,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +32,8 @@ fun HistoryScreen(
     onDestinationClick: (HabitatDestination) -> Unit = {},
     onIntent: (ParkingIntent) -> Unit = {}
 ) {
+    val colors = MaterialTheme.colorScheme
+
     HabitatScaffold(
         title = "Historial de Parqueo",
         selectedDestination = HabitatDestination.PARKING,
@@ -38,7 +41,6 @@ fun HistoryScreen(
         onBackClick = onBackClick,
         onDestinationClick = onDestinationClick
     ) { innerPadding ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -52,9 +54,7 @@ fun HistoryScreen(
             OutlinedTextField(
                 value = state.historySearch,
                 onValueChange = {
-                    onIntent(
-                        ParkingIntent.HistorySearchChanged(it)
-                    )
+                    onIntent(ParkingIntent.HistorySearchChanged(it))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
@@ -98,14 +98,15 @@ fun HistoryScreen(
                 text = "Resumen de reservas",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = HabitatTextPrimary
+                color = colors.onBackground
             )
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = HabitatSurface
+                    containerColor = colors.surface,
+                    contentColor = colors.onSurface
                 ),
                 elevation = CardDefaults.cardElevation(
                     defaultElevation = 2.dp
@@ -124,7 +125,7 @@ fun HistoryScreen(
 
                     VerticalDivider(
                         modifier = Modifier.height(42.dp),
-                        color = HabitatLightBlue
+                        color = colors.outlineVariant
                     )
 
                     StatisticItem(
@@ -134,7 +135,7 @@ fun HistoryScreen(
 
                     VerticalDivider(
                         modifier = Modifier.height(42.dp),
-                        color = HabitatLightBlue
+                        color = colors.outlineVariant
                     )
 
                     StatisticItem(
@@ -148,13 +149,13 @@ fun HistoryScreen(
                 text = "Actividad reciente",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = HabitatTextPrimary
+                color = colors.onBackground
             )
 
             if (state.error != null) {
                 Text(
                     text = state.error,
-                    color = MaterialTheme.colorScheme.error,
+                    color = colors.error,
                     fontSize = 12.sp
                 )
             }
@@ -162,12 +163,11 @@ fun HistoryScreen(
             if (state.filteredHistory.isEmpty()) {
                 Text(
                     text = "No hay reservas para mostrar.",
-                    color = HabitatTextSecondary,
+                    color = colors.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             } else {
                 state.filteredHistory.forEach { reservation ->
-
                     val isActive = reservation.status == "Activa"
                     val isCancelled = reservation.status == "Cancelada"
 
@@ -180,13 +180,13 @@ fun HistoryScreen(
                         status = reservation.status,
                         statusColor = when {
                             isActive -> ParkingAvailable
-                            isCancelled -> ParkingOccupied
-                            else -> HabitatSecondary
+                            isCancelled -> colors.onErrorContainer
+                            else -> colors.onSecondaryContainer
                         },
                         statusBackground = when {
                             isActive -> ParkingAvailableContainer
-                            isCancelled -> ParkingOccupiedContainer
-                            else -> HabitatLightBlue
+                            isCancelled -> colors.errorContainer
+                            else -> colors.secondaryContainer
                         },
                         onCancel = if (isActive) {
                             {
@@ -214,9 +214,20 @@ private fun FilterChipDesign(
     selected: Boolean = false,
     onClick: () -> Unit = {}
 ) {
+    val colors = MaterialTheme.colorScheme
+
     Surface(
         modifier = Modifier.clickable { onClick() },
-        color = if (selected) HabitatBlue else HabitatSurface,
+        color = if (selected) {
+            colors.primary
+        } else {
+            colors.surface
+        },
+        contentColor = if (selected) {
+            colors.onPrimary
+        } else {
+            colors.onSurfaceVariant
+        },
         shape = RoundedCornerShape(20.dp),
         tonalElevation = if (selected) 0.dp else 1.dp
     ) {
@@ -226,8 +237,11 @@ private fun FilterChipDesign(
                 horizontal = 10.dp,
                 vertical = 7.dp
             ),
-            color = if (selected) Color.White
-            else HabitatTextSecondary,
+            color = if (selected) {
+                colors.onPrimary
+            } else {
+                colors.onSurfaceVariant
+            },
             fontSize = 10.sp,
             fontWeight = if (selected) {
                 FontWeight.SemiBold
@@ -243,19 +257,21 @@ private fun StatisticItem(
     number: String,
     label: String
 ) {
+    val colors = MaterialTheme.colorScheme
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = number,
-            color = HabitatBlue,
+            color = colors.primary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
 
         Text(
             text = label,
-            color = HabitatTextSecondary,
+            color = colors.onSurfaceVariant,
             fontSize = 8.sp,
             lineHeight = 10.sp
         )
@@ -274,11 +290,14 @@ private fun HistoryDesignCard(
     statusBackground: Color,
     onCancel: (() -> Unit)? = null
 ) {
+    val colors = MaterialTheme.colorScheme
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = HabitatSurface
+            containerColor = colors.surface,
+            contentColor = colors.onSurface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
@@ -292,23 +311,28 @@ private fun HistoryDesignCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                ) {
                     Text(
                         text = name,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = HabitatTextPrimary
+                        color = colors.onSurface
                     )
 
                     Text(
                         text = plate,
                         fontSize = 9.sp,
-                        color = HabitatTextSecondary
+                        color = colors.onSurfaceVariant
                     )
                 }
 
                 Surface(
                     color = statusBackground,
+                    contentColor = statusColor,
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Text(
@@ -324,7 +348,7 @@ private fun HistoryDesignCard(
                 }
             }
 
-            HorizontalDivider(color = HabitatLightBlue)
+            HorizontalDivider(color = colors.outlineVariant)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -334,13 +358,14 @@ private fun HistoryDesignCard(
                     Text(
                         text = "PARQUEO",
                         fontSize = 8.sp,
-                        color = HabitatTextSecondary
+                        color = colors.onSurfaceVariant
                     )
+
                     Text(
                         text = parking,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = HabitatTextPrimary
+                        color = colors.onSurface
                     )
                 }
 
@@ -348,12 +373,13 @@ private fun HistoryDesignCard(
                     Text(
                         text = "FECHA",
                         fontSize = 8.sp,
-                        color = HabitatTextSecondary
+                        color = colors.onSurfaceVariant
                     )
+
                     Text(
                         text = date,
                         fontSize = 10.sp,
-                        color = HabitatTextPrimary
+                        color = colors.onSurface
                     )
                 }
 
@@ -363,23 +389,23 @@ private fun HistoryDesignCard(
                     Text(
                         text = "HORARIO",
                         fontSize = 8.sp,
-                        color = HabitatTextSecondary
+                        color = colors.onSurfaceVariant
                     )
+
                     Text(
                         text = time,
                         fontSize = 10.sp,
-                        color = HabitatTextPrimary
+                        color = colors.onSurface
                     )
                 }
             }
 
             if (onCancel != null) {
-                HorizontalDivider(color = HabitatLightBlue)
+                HorizontalDivider(color = colors.outlineVariant)
 
-                var showConfirmation =
-                    androidx.compose.runtime.remember {
-                        androidx.compose.runtime.mutableStateOf(false)
-                    }
+                val showConfirmation = remember {
+                    mutableStateOf(false)
+                }
 
                 OutlinedButton(
                     onClick = {
@@ -387,7 +413,7 @@ private fun HistoryDesignCard(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
+                        contentColor = colors.error
                     )
                 ) {
                     Text("Cancelar reserva")
@@ -433,14 +459,27 @@ private fun HistoryDesignCard(
 }
 
 @Preview(
-    name = "03 - Historial y Estadísticas",
+    name = "Historial - Claro",
     showBackground = true,
-    showSystemUi = true,
-    device = "spec:width=411dp,height=891dp,dpi=420"
+    widthDp = 411,
+    heightDp = 891
 )
 @Composable
-private fun HistoryScreenPreview() {
-    HabitatPlusTheme {
+private fun HistoryScreenLightPreview() {
+    ResidentTheme(darkTheme = false) {
+        HistoryScreen()
+    }
+}
+
+@Preview(
+    name = "Historial - Oscuro",
+    showBackground = true,
+    widthDp = 411,
+    heightDp = 891
+)
+@Composable
+private fun HistoryScreenDarkPreview() {
+    ResidentTheme(darkTheme = true) {
         HistoryScreen()
     }
 }

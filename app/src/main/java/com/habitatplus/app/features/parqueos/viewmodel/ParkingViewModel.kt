@@ -1,22 +1,27 @@
-
 package com.habitatplus.app.features.parqueos.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.habitatplus.app.data.repository.CloudParkingReservation
 import com.habitatplus.app.data.repository.ParkingFirestoreRepository
+import com.habitatplus.app.features.notificaciones.data.NotificationRepository
+import com.habitatplus.app.features.notificaciones.model.NotificationType
 import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 import com.habitatplus.app.features.parqueos.model.*
 import com.habitatplus.app.features.parqueos.state.ParkingState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.google.firebase.auth.FirebaseAuth
 
-class ParkingViewModel : ViewModel() {
+class ParkingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = ParkingFirestoreRepository()
+    private val notificationRepository = NotificationRepository(application)
+    private val auth = FirebaseAuth.getInstance()
 
     private val _state = MutableStateFlow(ParkingState())
     val state: StateFlow<ParkingState> = _state.asStateFlow()
@@ -236,8 +241,21 @@ class ParkingViewModel : ViewModel() {
             error = null
         )
 
+        val reservationUserId = auth.currentUser?.uid
+        if (reservationUserId.isNullOrBlank()) {
+            _state.value = _state.value.copy(
+                isSavingReservation = false,
+                error = "Debes iniciar sesión para reservar."
+            )
+            return
+        }
+
         viewModelScope.launch {
             try {
+                if (auth.currentUser?.uid != reservationUserId) {
+                    throw IllegalStateException("La sesión cambió.")
+                }
+
                 repository.createReservation(
                     CloudParkingReservation(
                         parkingId = form.parkingId,
@@ -260,6 +278,30 @@ class ParkingViewModel : ViewModel() {
 
                 refreshReservations()
 
+                try {
+                    if (auth.currentUser?.uid == reservationUserId) {
+                        notificationRepository.createNotification(
+                            userId = reservationUserId,
+                            type = NotificationType.PARKING,
+                            title = "Reserva de parqueo confirmada",
+                            message = "Parqueo ${form.parkingId}, " +
+                                    "fecha ${form.date}, " +
+                                    "de ${form.entryTime} a ${form.exitTime}.",
+                            relatedId = null
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.w(
+                        "ParkingViewModel",
+                        "No se pudo guardar la notificación de parqueo.",
+                        e
+                    )
+                }
+
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isSavingReservation = false,

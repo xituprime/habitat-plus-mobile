@@ -1,5 +1,4 @@
 package com.habitatplus.app.navigation
-
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -61,6 +60,8 @@ import com.habitatplus.app.features.parqueos.viewmodel.ParkingViewModel
 import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 import com.google.firebase.auth.FirebaseAuth
 import com.habitatplus.app.features.parqueos.state.ParkingState
+import com.habitatplus.app.features.notificaciones.ui.NotificationScreen
+import com.habitatplus.app.features.notificaciones.viewmodel.NotificationViewModel
 
 @Composable
 fun NavGraph(
@@ -77,14 +78,15 @@ fun NavGraph(
     val settingsViewModel: SettingsViewModel = viewModel()
     val reportViewModel: ReportViewModel = viewModel()
     val commonAreaViewModel: CommonAreaViewModel = viewModel()
+    val notificationViewModel: NotificationViewModel = viewModel()
     val parkingViewModel: ParkingViewModel = viewModel()
     val parkingState by parkingViewModel.state.collectAsState()
+    val notificationState by notificationViewModel.state.collectAsState()
 
     val clearParkingSession: () -> Unit = {
         parkingViewModel.clearSession()
     }
 
-    // States
     val dashboardState by dashboardViewModel.state.collectAsState()
     val announcementsState by announcementsViewModel.state.collectAsState()
     val profileState by profileViewModel.state.collectAsState()
@@ -232,34 +234,8 @@ fun NavGraph(
                             }
                         )
                     }
-                    // ---------------------------------------------------------
-                    // DASHBOARD
-                    // ---------------------------------------------------------
 
                     composable<AppRoute.Home>() {
-                        LaunchedEffect(Unit) {
-                            dashboardViewModel.onIntent(
-                                DashboardIntent.LoadRemoteData
-                            )
-                        }
-                        LaunchedEffect(
-                            dashboardState.httpResult,
-                            dashboardState.httpError
-                        ) {
-                            when {
-                                dashboardState.httpResult != null -> {
-                                    showMessage(
-                                        "Conexión HTTP exitosa: datos recibidos."
-                                    )
-                                }
-
-                                dashboardState.httpError != null -> {
-                                    showMessage(
-                                        "Error HTTP: ${dashboardState.httpError}"
-                                    )
-                                }
-                            }
-                        }
                         DashboardScreen(
                             state = dashboardState,
                             onIntent = dashboardViewModel::onIntent,
@@ -312,13 +288,15 @@ fun NavGraph(
                                 }
                             },
 
-                            onDestinationClick = navigateToDestination
+                            onDestinationClick = navigateToDestination,
+                            onNotificationsClick = {
+                                navController.navigate(AppRoute.Notifications) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            unreadCount = notificationState.unreadCount
                         )
                     }
-
-                    // ---------------------------------------------------------
-                    // PARQUEOS
-                    // ---------------------------------------------------------
 
 
                     composable<AppRoute.Parking> {
@@ -336,11 +314,22 @@ fun NavGraph(
                                 )
                             },
                             onHistoryClick = {
-                                navController.navigate(AppRoute.ParkingHistory)
+                                navController.navigate(
+                                    AppRoute.ParkingHistory
+                                )
                             },
-                            onDestinationClick = navigateToDestination
+                            onDestinationClick = navigateToDestination,
+                            onNotificationsClick = {
+                                navController.navigate(
+                                    AppRoute.Notifications
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            unreadCount = notificationState.unreadCount
                         )
                     }
+
 
                     composable<AppRoute.ParkingReservation> {
                         ReservationScreen(
@@ -371,11 +360,9 @@ fun NavGraph(
                     }
 
 
-                    // ---------------------------------------------------------
-                    // REPORTES
-                    // ---------------------------------------------------------
 
-                    composable<AppRoute.Reports>() {
+
+                    composable<AppRoute.Reports> {
 
                         LaunchedEffect(Unit) {
                             reportViewModel.onIntent(
@@ -398,12 +385,25 @@ fun NavGraph(
                                     ReportIntent.SelectReport(report.id)
                                 )
 
-                                navController.navigate(AppRoute.ReportDetail)
+                                navController.navigate(
+                                    AppRoute.ReportDetail
+                                )
                             },
 
-                            onDestinationClick = navigateToDestination
+                            onDestinationClick = navigateToDestination,
+
+                            onNotificationsClick = {
+                                navController.navigate(
+                                    AppRoute.Notifications
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            },
+
+                            unreadCount = notificationState.unreadCount
                         )
                     }
+
 
                     composable<AppRoute.CreateReport>() {
                         CreateReportScreen(
@@ -427,11 +427,9 @@ fun NavGraph(
                         )
                     }
 
-                    // ---------------------------------------------------------
-                    // ÁREAS COMUNES
-                    // ---------------------------------------------------------
 
-                    composable<AppRoute.Areas>() {
+
+                    composable<AppRoute.Areas> {
 
                         LaunchedEffect(Unit) {
                             commonAreaViewModel.onIntent(
@@ -443,11 +441,8 @@ fun NavGraph(
                             state = commonAreaState,
 
                             onAreaClick = { area ->
-
                                 commonAreaViewModel.onIntent(
-                                    CommonAreaIntent.SelectArea(
-                                        area.id
-                                    )
+                                    CommonAreaIntent.SelectArea(area.id)
                                 )
 
                                 commonAreaViewModel.onIntent(
@@ -459,9 +454,20 @@ fun NavGraph(
                                 )
                             },
 
-                            onDestinationClick = navigateToDestination
+                            onDestinationClick = navigateToDestination,
+
+                            onNotificationsClick = {
+                                navController.navigate(
+                                    AppRoute.Notifications
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            },
+
+                            unreadCount = notificationState.unreadCount
                         )
                     }
+
 
                     composable<AppRoute.AreaAvailability>() {
 
@@ -491,9 +497,6 @@ fun NavGraph(
                         )
                     }
 
-                    // ---------------------------------------------------------
-                    // ANUNCIOS
-                    // ---------------------------------------------------------
 
                     composable<AppRoute.Announcements>() {
 
@@ -511,9 +514,6 @@ fun NavGraph(
                         )
                     }
 
-                    // ---------------------------------------------------------
-                    // DETALLE DE ANUNCIO
-                    // ---------------------------------------------------------
 
                     composable<AppRoute.AnnouncementDetail> { entry ->
 
@@ -547,11 +547,23 @@ fun NavGraph(
                         )
                     }
 
-                    // ---------------------------------------------------------
-                    // PERFIL
-                    // ---------------------------------------------------------
 
-                    composable<AppRoute.Profile>() {
+                    composable<AppRoute.Notifications> {
+                        LaunchedEffect(Unit) {
+                            notificationViewModel.loadNotifications()
+                        }
+                        NotificationScreen(
+                            state = notificationState,
+                            onBackClick = { navController.popBackStack() },
+                            onMarkAsRead = notificationViewModel::markAsRead,
+                            onMarkAllAsRead = notificationViewModel::markAllAsRead,
+                            onDelete = notificationViewModel::deleteNotification,
+                            onRefresh = notificationViewModel::loadNotifications
+                        )
+                    }
+
+
+                    composable<AppRoute.Profile> {
 
                         ProfileScreen(
                             state = profileState,
@@ -565,13 +577,21 @@ fun NavGraph(
                                 }
                             },
 
-                            onDestinationClick = navigateToDestination
+                            onDestinationClick = navigateToDestination,
+
+                            onNotificationsClick = {
+                                navController.navigate(
+                                    AppRoute.Notifications
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            },
+
+                            unreadCount = notificationState.unreadCount
                         )
                     }
 
-                    // ---------------------------------------------------------
-                    // CONFIGURACIÓN
-                    // ---------------------------------------------------------
+
 
                     composable<AppRoute.Settings>() {
 
@@ -615,4 +635,3 @@ fun NavGraph(
         }
     }
 }
-

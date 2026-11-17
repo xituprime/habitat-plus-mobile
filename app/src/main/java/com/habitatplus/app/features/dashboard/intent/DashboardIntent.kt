@@ -1,11 +1,10 @@
+
 package com.habitatplus.app.features.dashboard.intent
 
 import com.habitatplus.app.features.dashboard.model.DashboardNavigation
 import com.habitatplus.app.features.dashboard.model.DashboardTab
 
 sealed interface DashboardIntent {
-
-    data object LoadRemoteData : DashboardIntent
 
     data object Load : DashboardIntent
 

@@ -41,18 +41,26 @@ import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
+
 @Composable
 fun CommonAreasScreen(
     state: CommonAreaState,
     onAreaClick: (CommonArea) -> Unit = {},
-    onDestinationClick: (HabitatDestination) -> Unit = {}
+    onDestinationClick: (HabitatDestination) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0
 ) {
+
+
 
     HabitatScaffold(
         title = "Áreas Comunes",
         selectedDestination = HabitatDestination.AREAS,
-        onDestinationClick = onDestinationClick
+        onDestinationClick = onDestinationClick,
+        onNotificationsClick = onNotificationsClick,
+        unreadCount = unreadCount
     ) { innerPadding ->
+
 
         Column(
             modifier = Modifier

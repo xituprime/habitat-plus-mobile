@@ -1,10 +1,11 @@
+
 package com.habitatplus.app.ui.components
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import com.habitatplus.app.ui.theme.HabitatBackground
 
 @Composable
 fun HabitatScaffold(
@@ -13,10 +14,13 @@ fun HabitatScaffold(
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
     onDestinationClick: (HabitatDestination) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0,
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
-        containerColor = HabitatBackground,
+        containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
 
         contentWindowInsets = WindowInsets(
             left = 0,
@@ -29,7 +33,9 @@ fun HabitatScaffold(
             HabitatTopBar(
                 title = title,
                 showBackButton = showBackButton,
-                onBackClick = onBackClick
+                onBackClick = onBackClick,
+                onNotificationsClick = onNotificationsClick,
+                unreadCount = unreadCount
             )
         },
 
