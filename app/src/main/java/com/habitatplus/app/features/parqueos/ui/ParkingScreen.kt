@@ -24,6 +24,7 @@ import com.habitatplus.app.features.parqueos.model.ParkingStatus
 @Composable
 fun ParkingScreen(
     state: ParkingState = ParkingState(),
+    residentApartment: String = "",
     onIntent: (ParkingIntent) -> Unit = {},
     onReservationClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
@@ -58,14 +59,20 @@ fun ParkingScreen(
 
                     Column {
                         Text(
-                            text = "P-12",
+                            text = "Sin asignación",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = HabitatTextPrimary
                         )
 
                         Text(
-                            text = "Apartamento A-203",
+                            text = if (residentApartment.isBlank() ||
+                                residentApartment == "Sin asignar"
+                            ) {
+                                "Residencia pendiente de asignación"
+                            } else {
+                                "Apartamento $residentApartment"
+                            },
                             fontSize = 11.sp,
                             color = HabitatTextSecondary
                         )
@@ -108,7 +115,7 @@ fun ParkingScreen(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = "HAB-892",
+                                text = "No registrada",
                                 modifier = Modifier.padding(
                                     horizontal = 10.dp,
                                     vertical = 5.dp

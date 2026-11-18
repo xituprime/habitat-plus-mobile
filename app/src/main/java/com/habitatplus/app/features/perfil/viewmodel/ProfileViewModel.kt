@@ -1,121 +1,195 @@
+
 package com.habitatplus.app.features.perfil.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.habitatplus.app.core.data.FakeResidentRepository
-import com.habitatplus.app.core.data.Resident
-import com.habitatplus.app.core.data.ResidentRepository
+import com.google.firebase.auth.FirebaseAuth
+import com.habitatplus.app.core.session.ResidentUser
+import com.habitatplus.app.core.session.UserSessionRepository
 import com.habitatplus.app.features.perfil.intent.ProfileIntent
 import com.habitatplus.app.features.perfil.state.ProfileState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 class ProfileViewModel : ViewModel() {
 
-    private val repository: ResidentRepository = FakeResidentRepository
+    private val repository = UserSessionRepository()
+    private val auth = FirebaseAuth.getInstance()
 
     private val _state = MutableStateFlow(ProfileState())
     val state: StateFlow<ProfileState> = _state.asStateFlow()
 
+    private var loadedUid: String? = null
+    private var requestVersion = 0
+    private var isSaving = false
+
     init {
         loadProfile()
-
-        viewModelScope.launch {
-            repository.resident.collect { resident ->
-                showResident(resident)
-            }
-        }
     }
 
     fun onIntent(intent: ProfileIntent) {
         when (intent) {
             ProfileIntent.Load -> loadProfile()
 
-            ProfileIntent.ShowResidence -> {
-                _state.update { it.copy(showResidence = true) }
-            }
+            ProfileIntent.ShowResidence ->
+                _state.update {
+                    it.copy(showResidence = true)
+                }
 
-            ProfileIntent.DismissResidence -> {
-                _state.update { it.copy(showResidence = false) }
-            }
+            ProfileIntent.DismissResidence ->
+                _state.update {
+                    it.copy(showResidence = false)
+                }
 
             ProfileIntent.StartEditing -> startEditing()
 
-            is ProfileIntent.ChangeName -> {
-                _state.update { current ->
-                    if (current.isEditing) {
-                        current.copy(
+            is ProfileIntent.ChangeName ->
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
                             draftName = intent.value,
                             nameError = null
                         )
-                    } else {
-                        current
-                    }
+                    } else it
                 }
-            }
 
-            is ProfileIntent.ChangePhone -> {
-                _state.update { current ->
-                    if (current.isEditing) {
-                        current.copy(
+            is ProfileIntent.ChangePhone ->
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
                             draftPhone = intent.value,
                             phoneError = null
                         )
-                    } else {
-                        current
-                    }
+                    } else it
                 }
-            }
 
             ProfileIntent.SaveChanges -> saveChanges()
 
-            ProfileIntent.CancelEditing -> cancelEditing()
-
-            ProfileIntent.DismissSuccess -> {
-                _state.update { it.copy(successMessage = null) }
+            ProfileIntent.CancelEditing -> {
+                if (!isSaving) cancelEditing()
             }
 
-            ProfileIntent.OpenSettings -> {
-                _state.update { it.copy(settingsRequested = true) }
-            }
+            ProfileIntent.DismissSuccess ->
+                _state.update {
+                    it.copy(successMessage = null)
+                }
 
-            ProfileIntent.SettingsNavigationHandled -> {
-                _state.update { it.copy(settingsRequested = false) }
+            ProfileIntent.OpenSettings ->
+                _state.update {
+                    it.copy(settingsRequested = true)
+                }
+
+            ProfileIntent.SettingsNavigationHandled ->
+                _state.update {
+                    it.copy(settingsRequested = false)
+                }
+        }
+    }
+
+    fun clearSession() {
+        requestVersion++
+        loadedUid = null
+        isSaving = false
+        _state.value = ProfileState()
+    }
+
+    fun loadProfile() {
+        val uid = auth.currentUser?.uid
+
+        if (uid == null) {
+            clearSession()
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    error = "Debes iniciar sesión."
+                )
+            }
+            return
+        }
+
+        requestVersion++
+        val request = requestVersion
+        loadedUid = uid
+
+        _state.value = ProfileState(isLoading = true)
+
+        viewModelScope.launch {
+            try {
+                val user = repository.getCurrentUser()
+
+                if (auth.currentUser?.uid != uid ||
+                    loadedUid != uid ||
+                    requestVersion != request
+                ) return@launch
+
+                showUser(user)
+
+            } catch (e: Exception) {
+                if (auth.currentUser?.uid == uid &&
+                    loadedUid == uid &&
+                    requestVersion == request
+                ) {
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "No se pudo cargar el perfil: " +
+                                    (e.localizedMessage ?: "Error desconocido")
+                        )
+                    }
+                }
             }
         }
     }
 
-    private fun loadProfile() {
-        showResident(repository.resident.value)
-    }
+    private fun showUser(user: ResidentUser) {
+        val approved =
+            user.residenceStatus == "approved"
 
-    private fun showResident(resident: Resident) {
-        _state.update { current ->
-            current.copy(
+        val displayName = user.fullName.ifBlank {
+            user.email.substringBefore("@")
+        }
+
+        _state.update {
+            it.copy(
                 isLoading = false,
                 error = null,
                 isOffline = false,
-                name = resident.name,
-                initials = buildInitials(resident.name),
-                role = resident.role,
-                condominium = resident.condominium,
-                tower = resident.tower,
-                apartment = resident.apartment,
-                email = resident.email,
-                phone = resident.phone,
-                verified = resident.verified
+                name = displayName,
+                initials = buildInitials(displayName),
+                role = when (user.role) {
+                    "admin" -> "Administrador"
+                    else -> "Residente"
+                },
+                condominium = "Habitat+",
+                tower = if (approved) {
+                    "Unidad asignada"
+                } else {
+                    "Pendiente de asignación"
+                },
+                apartment = if (approved &&
+                    user.apartment.isNotBlank()
+                ) {
+                    user.apartment
+                } else {
+                    "Sin asignar"
+                },
+                email = user.email,
+                phone = user.phone,
+                verified = approved
             )
         }
     }
 
     private fun startEditing() {
         _state.update { current ->
-            if (current.isLoading || current.error != null || current.isEditing) {
+            if (current.isLoading ||
+                current.error != null ||
+                current.isEditing
+            ) {
                 current
             } else {
                 current.copy(
@@ -133,11 +207,11 @@ class ProfileViewModel : ViewModel() {
 
     private fun saveChanges() {
         val current = _state.value
+        if (!current.isEditing || isSaving) return
 
-        if (!current.isEditing) return
+        val uid = auth.currentUser?.uid ?: return
 
-        val name = current.draftName
-            .trim()
+        val name = current.draftName.trim()
             .replace(Regex("\\s+"), " ")
 
         val phone = current.draftPhone.trim()
@@ -155,20 +229,61 @@ class ProfileViewModel : ViewModel() {
             return
         }
 
-        repository.updateContact(name = name, phone = phone)
+        isSaving = true
+        val request = ++requestVersion
 
-        // Refleja el resultado inmediatamente en Perfil.
-        showResident(repository.resident.value)
+        viewModelScope.launch {
+            try {
+                repository.updateProfile(name, phone)
 
-        _state.update {
-            it.copy(
-                isEditing = false,
-                draftName = "",
-                draftPhone = "",
-                nameError = null,
-                phoneError = null,
-                successMessage = "Los cambios de tu perfil se guardaron."
-            )
+                if (auth.currentUser?.uid != uid ||
+                    requestVersion != request
+                ) return@launch
+
+                val updatedUser = repository.getCurrentUser()
+
+                if (auth.currentUser?.uid != uid ||
+                    requestVersion != request
+                ) return@launch
+
+                showUser(updatedUser)
+
+                _state.update {
+                    it.copy(
+                        isEditing = false,
+                        draftName = "",
+                        draftPhone = "",
+                        nameError = null,
+                        phoneError = null,
+                        successMessage =
+                            "Los cambios de tu perfil se guardaron."
+                    )
+                }
+
+            } catch (e: Exception) {
+                if (auth.currentUser?.uid == uid &&
+                    requestVersion == request
+                ) {
+                    _state.update {
+                        it.copy(
+                            phoneError = null,
+                            error = null,
+                            successMessage = null
+                        )
+                    }
+                    // Conservamos el formulario para reintentar.
+                    _state.update {
+                        it.copy(
+                            phoneError = "No se pudo guardar: " +
+                                    (e.localizedMessage ?: "Error")
+                        )
+                    }
+                }
+            } finally {
+                if (requestVersion == request) {
+                    isSaving = false
+                }
+            }
         }
     }
 
@@ -184,49 +299,36 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    private fun validateName(name: String): String? {
-        return when {
-            name.isBlank() ->
-                "Ingresa tu nombre."
-
+    private fun validateName(name: String): String? =
+        when {
+            name.isBlank() -> "Ingresa tu nombre."
             name.length < 2 ->
                 "El nombre debe tener al menos 2 caracteres."
-
             name.length > 80 ->
                 "El nombre no puede superar 80 caracteres."
-
             name.none { it.isLetter() } ->
                 "El nombre debe contener letras."
-
             else -> null
         }
-    }
 
     private fun validatePhone(phone: String): String? {
         if (phone.isBlank()) return null
 
-        val allowedFormat = Regex("^\\+?[0-9() -]+$")
-
-        if (!allowedFormat.matches(phone)) {
-            return "Usa números, espacios, guiones o paréntesis. " +
-                    "El signo + solo puede ir al inicio."
+        if (!Regex("^\\+?[0-9() -]+$").matches(phone)) {
+            return "Formato de teléfono inválido."
         }
 
-        val digitCount = phone.count { it in '0'..'9' }
+        val digits = phone.count { it.isDigit() }
 
-        return if (digitCount !in 8..15) {
-            "El teléfono debe contener entre 8 y 15 dígitos."
-        } else {
-            null
-        }
+        return if (digits !in 8..15) {
+            "El teléfono debe tener entre 8 y 15 dígitos."
+        } else null
     }
 
-    private fun buildInitials(name: String): String {
-        return name
-            .split(" ")
+    private fun buildInitials(name: String): String =
+        name.split(" ")
             .filter { it.isNotBlank() }
             .take(2)
             .joinToString("") { it.take(1) }
             .uppercase(Locale.getDefault())
-    }
 }

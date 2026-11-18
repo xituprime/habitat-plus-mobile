@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.configuracion.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -44,8 +45,10 @@ fun SettingsScreen(
     residence: String,
     onIntent: (SettingsIntent) -> Unit,
     onSignOut: () -> Unit,
+    isAdmin: Boolean = false,
+    onAdminClick: () -> Unit = {},
     modifier: Modifier = Modifier,
-    onBackClick : () -> Unit = {}
+    onBackClick: () -> Unit = {}
 ) {
     LaunchedEffect(state.signOutRequested) {
         if (state.signOutRequested) {
@@ -55,22 +58,27 @@ fun SettingsScreen(
     }
 
     ResidentPage(modifier) {
+
         HabitatBackHeader(
             title = "Regresar a perfil",
             onBackClick = onBackClick
         )
+
         ResidentTitle(
             text = "Configuración",
             subtitle = "Preferencias de la aplicación"
         )
 
+        // DATOS DEL USUARIO
         ResidentCard {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                ResidentAvatar(initials = userInitials)
+                ResidentAvatar(
+                    initials = userInitials
+                )
 
                 Column(
                     modifier = Modifier.weight(1f),
@@ -88,18 +96,37 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    ResidentBadge(text = residence)
+                    ResidentBadge(
+                        text = residence
+                    )
                 }
             }
         }
 
+        // OPCIONES DE CONFIGURACION
         ResidentCard {
+
+            // Solo visible para administradores
+            if (isAdmin) {
+                ResidentOption(
+                    title = "Administración",
+                    subtitle = "Gestionar residentes y viviendas",
+                    onClick = {
+                        onAdminClick()
+                    }
+                )
+
+                HorizontalDivider()
+            }
+
             ResidentOption(
                 title = "Idioma",
                 subtitle = "Español (América Latina)",
                 onClick = {
                     onIntent(
-                        SettingsIntent.OpenDialog(SettingsDialog.LANGUAGE)
+                        SettingsIntent.OpenDialog(
+                            SettingsDialog.LANGUAGE
+                        )
                     )
                 }
             )
@@ -111,7 +138,9 @@ fun SettingsScreen(
                 subtitle = state.theme.label,
                 onClick = {
                     onIntent(
-                        SettingsIntent.OpenDialog(SettingsDialog.THEME)
+                        SettingsIntent.OpenDialog(
+                            SettingsDialog.THEME
+                        )
                     )
                 }
             )
@@ -123,7 +152,9 @@ fun SettingsScreen(
                 subtitle = "Información de Habitat+",
                 onClick = {
                     onIntent(
-                        SettingsIntent.OpenDialog(SettingsDialog.ABOUT)
+                        SettingsIntent.OpenDialog(
+                            SettingsDialog.ABOUT
+                        )
                     )
                 }
             )
@@ -136,7 +167,9 @@ fun SettingsScreen(
                 destructive = true,
                 onClick = {
                     onIntent(
-                        SettingsIntent.OpenDialog(SettingsDialog.SIGN_OUT)
+                        SettingsIntent.OpenDialog(
+                            SettingsDialog.SIGN_OUT
+                        )
                     )
                 }
             )
@@ -149,7 +182,9 @@ fun SettingsScreen(
         )
     }
 
+    // DIALOGOS
     when (state.dialog) {
+
         SettingsDialog.LANGUAGE -> {
             SettingsInformationDialog(
                 title = "Idioma",
@@ -176,6 +211,7 @@ fun SettingsScreen(
                             .selectableGroup()
                     ) {
                         ThemePreference.entries.forEach { preference ->
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -196,9 +232,8 @@ fun SettingsScreen(
                                         vertical = 8.dp
                                     ),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(
-                                    12.dp
-                                )
+                                horizontalArrangement =
+                                    Arrangement.spacedBy(12.dp)
                             ) {
                                 RadioButton(
                                     selected = state.theme == preference,
@@ -220,7 +255,7 @@ fun SettingsScreen(
                             onIntent(SettingsIntent.DismissDialog)
                         }
                     ) {
-                        Text("Cancelar")
+                        Text("Cerrar")
                     }
                 }
             )
@@ -229,10 +264,11 @@ fun SettingsScreen(
         SettingsDialog.ABOUT -> {
             SettingsInformationDialog(
                 title = "Acerca de Habitat+",
-                message = "Plataforma para la administración de condominios.\n\n" +
-                        "Consulta anuncios, parqueos, reportes y reservas " +
-                        "de áreas comunes.\n\n" +
-                        "Proyecto académico desarrollado por Axel, Kenett y Junior.",
+                message =
+                    "Plataforma para la administración de condominios.\n\n" +
+                            "Consulta anuncios, parqueos, reportes y reservas " +
+                            "de áreas comunes.\n\n" +
+                            "Proyecto académico desarrollado por Axel, Kenett y Junior.",
                 onDismiss = {
                     onIntent(SettingsIntent.DismissDialog)
                 }
@@ -297,11 +333,15 @@ private fun SettingsInformationDialog(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.verticalScroll(rememberScrollState())
+                modifier = Modifier.verticalScroll(
+                    rememberScrollState()
+                )
             )
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss
+            ) {
                 Text("Entendido")
             }
         }
