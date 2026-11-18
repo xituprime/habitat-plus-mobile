@@ -14,6 +14,8 @@ data class ReportState(
 
     val selectedCategory: ReportCategory? = null,
     val description: String = "",
+    val location: String = "",
+
     val hasSelectedPhoto: Boolean = false,
     val selectedPhotoUri: String? = null,
 

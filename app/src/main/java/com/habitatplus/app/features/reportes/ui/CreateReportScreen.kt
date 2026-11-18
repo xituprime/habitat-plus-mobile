@@ -63,7 +63,6 @@ fun CreateReportScreen(
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-
         if (uri != null) {
             scope.launch {
                 val savedUri = withContext(Dispatchers.IO) {
@@ -88,12 +87,8 @@ fun CreateReportScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                MaterialTheme.colorScheme.background
-            )
-            .verticalScroll(
-                rememberScrollState()
-            )
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
             .padding(
                 horizontal = 16.dp,
                 vertical = 8.dp
@@ -117,24 +112,19 @@ fun CreateReportScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(
-            modifier = Modifier.height(14.dp)
-        )
+        Spacer(modifier = Modifier.height(14.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Text(
                 text = "Categoría",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
+            Spacer(modifier = Modifier.weight(1f))
 
             Text(
                 text = "Obligatorio",
@@ -143,9 +133,7 @@ fun CreateReportScreen(
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(7.dp)
-        )
+        Spacer(modifier = Modifier.height(7.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -192,9 +180,7 @@ fun CreateReportScreen(
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(5.dp)
-        )
+        Spacer(modifier = Modifier.height(5.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -228,23 +214,73 @@ fun CreateReportScreen(
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(14.dp)
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // F10: ubicación obligatoria
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Ubicación del incidente",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Text(
+                text = "Obligatorio",
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        OutlinedTextField(
+            value = state.location,
+            onValueChange = {
+                onIntent(ReportIntent.UpdateLocation(it))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = {
+                Text(
+                    text = "Ej. Torre A - Piso 3, Piscina...",
+                    fontSize = 11.sp
+                )
+            },
+            supportingText = {
+                Text(
+                    text = "${state.location.length}/150",
+                    fontSize = 9.sp
+                )
+            },
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = Color.Transparent,
+                focusedContainerColor =
+                    MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedContainerColor =
+                    MaterialTheme.colorScheme.surfaceVariant
+            )
         )
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth()
         ) {
-
             Text(
                 text = "Descripción",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
+            Spacer(modifier = Modifier.weight(1f))
 
             Text(
                 text = "${state.description.length}/500",
@@ -253,28 +289,19 @@ fun CreateReportScreen(
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(6.dp)
-        )
+        Spacer(modifier = Modifier.height(6.dp))
 
         OutlinedTextField(
             value = state.description,
-            onValueChange = { description ->
-
-                if (description.length <= 500) {
-                    onIntent(
-                        ReportIntent.UpdateDescription(
-                            description
-                        )
-                    )
-                }
+            onValueChange = {
+                onIntent(ReportIntent.UpdateDescription(it))
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(110.dp),
             placeholder = {
                 Text(
-                    text = "Detalla el problema observado, ubicación específica o desperfecto...",
+                    text = "Detalla el problema observado o desperfecto...",
                     fontSize = 11.sp
                 )
             },
@@ -289,9 +316,7 @@ fun CreateReportScreen(
             )
         )
 
-        Spacer(
-            modifier = Modifier.height(14.dp)
-        )
+        Spacer(modifier = Modifier.height(14.dp))
 
         Text(
             text = "Fotografía de Evidencia",
@@ -299,9 +324,7 @@ fun CreateReportScreen(
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(
-            modifier = Modifier.height(6.dp)
-        )
+        Spacer(modifier = Modifier.height(6.dp))
 
         Surface(
             modifier = Modifier
@@ -359,19 +382,36 @@ fun CreateReportScreen(
             }
         }
 
-        Spacer(
-            modifier = Modifier.height(14.dp)
-        )
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Mensaje de error del ViewModel
+
+        if (state.errorMessage != null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.errorContainer
+            ) {
+                Text(
+                    text = state.errorMessage,
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+        }
 
         Button(
             onClick = {
-                onIntent(
-                    ReportIntent.SubmitReport
-                )
+                onIntent(ReportIntent.SubmitReport)
             },
             enabled =
                 !state.isSubmitting &&
+                        !state.isLoading &&
                         state.selectedCategory != null &&
+                        state.location.isNotBlank() &&
                         state.description.isNotBlank(),
             modifier = Modifier
                 .fillMaxWidth()
@@ -381,7 +421,6 @@ fun CreateReportScreen(
                 containerColor = MaterialTheme.colorScheme.primary
             )
         ) {
-
             Text(
                 text = if (state.isSubmitting) {
                     "Enviando..."
@@ -393,20 +432,16 @@ fun CreateReportScreen(
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
+        Spacer(modifier = Modifier.height(12.dp))
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.primaryContainer
         ) {
-
             Column(
                 modifier = Modifier.padding(12.dp)
             ) {
-
                 Text(
                     text = "Gestión centralizada",
                     fontSize = 11.sp,
@@ -421,9 +456,7 @@ fun CreateReportScreen(
             }
         }
 
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -469,11 +502,8 @@ private fun CategoryOption(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-
     Surface(
-        modifier = Modifier.clickable {
-            onClick()
-        },
+        modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(50),
         color = if (selected) {
             MaterialTheme.colorScheme.primaryContainer
@@ -481,7 +511,6 @@ private fun CategoryOption(
             MaterialTheme.colorScheme.surfaceVariant
         }
     ) {
-
         Text(
             text = text,
             modifier = Modifier.padding(
@@ -505,9 +534,7 @@ private fun CategoryOption(
 )
 @Composable
 private fun CreateReportScreenPreview() {
-
     HabitatPlusTheme {
-
         CreateReportScreen(
             state = ReportState()
         )
