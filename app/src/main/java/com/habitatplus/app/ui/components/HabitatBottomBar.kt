@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.habitatplus.app.ui.theme.ResidentTheme
+import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
 @Composable
 fun HabitatBottomBar(
@@ -78,7 +79,9 @@ fun HabitatBottomBar(
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Icon(
-                            painter = painterResource(destination.iconRes),
+                            painter = painterResource(
+                                destination.iconRes
+                            ),
                             contentDescription = null,
                             modifier = Modifier
                                 .padding(
@@ -116,13 +119,13 @@ fun HabitatBottomBar(
 }
 
 @Preview(
-    name = "Barra inferior - Claro",
+    name = "BottomBar claro",
     showBackground = true,
     widthDp = 412
 )
 @Composable
 private fun HabitatBottomBarLightPreview() {
-    ResidentTheme(darkTheme = false) {
+    HabitatPlusTheme(darkTheme = false) {
         HabitatBottomBar(
             selectedDestination = HabitatDestination.HOME
         )
@@ -130,13 +133,13 @@ private fun HabitatBottomBarLightPreview() {
 }
 
 @Preview(
-    name = "Barra inferior - Oscuro",
+    name = "BottomBar oscuro",
     showBackground = true,
     widthDp = 412
 )
 @Composable
 private fun HabitatBottomBarDarkPreview() {
-    ResidentTheme(darkTheme = true) {
+    HabitatPlusTheme(darkTheme = true) {
         HabitatBottomBar(
             selectedDestination = HabitatDestination.PARKING
         )

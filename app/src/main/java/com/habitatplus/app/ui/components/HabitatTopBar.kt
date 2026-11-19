@@ -20,7 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.habitatplus.app.R
-import com.habitatplus.app.ui.theme.ResidentTheme
+import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
 @Composable
 fun HabitatTopBar(
@@ -47,8 +47,11 @@ fun HabitatTopBar(
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Flecha de regreso o logo.
             if (showBackButton) {
-                IconButton(onClick = onBackClick) {
+                IconButton(
+                    onClick = onBackClick
+                ) {
                     Icon(
                         painter = painterResource(
                             R.drawable.ic_arrow_back
@@ -75,9 +78,10 @@ fun HabitatTopBar(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(Modifier.width(10.dp))
             }
 
+            // Titulo de la pantalla.
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -98,6 +102,7 @@ fun HabitatTopBar(
                 )
             }
 
+            // Campanita de notificaciones.
             Box {
                 IconButton(
                     onClick = onNotificationsClick
@@ -112,6 +117,7 @@ fun HabitatTopBar(
                     )
                 }
 
+                // Contador de notificaciones no leidas.
                 if (unreadCount > 0) {
                     Badge(
                         modifier = Modifier.align(
@@ -131,6 +137,7 @@ fun HabitatTopBar(
                 }
             }
 
+            // Icono de perfil.
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -154,13 +161,13 @@ fun HabitatTopBar(
 }
 
 @Preview(
-    name = "Barra superior - Claro",
+    name = "TopBar claro",
     showBackground = true,
     widthDp = 412
 )
 @Composable
 private fun HabitatTopBarLightPreview() {
-    ResidentTheme(darkTheme = false) {
+    HabitatPlusTheme(darkTheme = false) {
         HabitatTopBar(
             title = "Inicio",
             unreadCount = 3
@@ -169,13 +176,13 @@ private fun HabitatTopBarLightPreview() {
 }
 
 @Preview(
-    name = "Barra superior - Oscuro",
+    name = "TopBar oscuro",
     showBackground = true,
     widthDp = 412
 )
 @Composable
 private fun HabitatTopBarDarkPreview() {
-    ResidentTheme(darkTheme = true) {
+    HabitatPlusTheme(darkTheme = true) {
         HabitatTopBar(
             title = "Inicio",
             unreadCount = 3
@@ -184,13 +191,13 @@ private fun HabitatTopBarDarkPreview() {
 }
 
 @Preview(
-    name = "Barra superior - Regresar oscuro",
+    name = "TopBar regresar oscuro",
     showBackground = true,
     widthDp = 412
 )
 @Composable
 private fun HabitatTopBarBackPreview() {
-    ResidentTheme(darkTheme = true) {
+    HabitatPlusTheme(darkTheme = true) {
         HabitatTopBar(
             title = "Reservar Parqueo",
             showBackButton = true

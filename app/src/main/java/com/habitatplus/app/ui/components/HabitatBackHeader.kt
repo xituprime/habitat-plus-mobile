@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.ui.components
 
 import androidx.compose.foundation.layout.Row
@@ -18,7 +19,7 @@ fun HabitatBackHeader(
     title: String,
     onBackClick: () -> Unit
 ) {
-    val contentColor = MaterialTheme.colorScheme.onBackground
+    val contentColor = MaterialTheme.colorScheme.onSurface
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -28,7 +29,9 @@ fun HabitatBackHeader(
             onClick = onBackClick
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_arrow_back),
+                painter = painterResource(
+                    R.drawable.ic_arrow_back
+                ),
                 contentDescription = "Regresar",
                 tint = contentColor
             )

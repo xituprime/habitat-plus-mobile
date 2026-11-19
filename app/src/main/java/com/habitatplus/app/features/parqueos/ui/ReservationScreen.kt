@@ -1,6 +1,11 @@
 
 package com.habitatplus.app.features.parqueos.ui
 
+import android.app.DatePickerDialog
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -19,16 +26,12 @@ import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 import com.habitatplus.app.features.parqueos.state.ParkingState
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
-import com.habitatplus.app.ui.theme.ParkingAvailable
-import com.habitatplus.app.ui.theme.ParkingAvailableContainer
-import com.habitatplus.app.ui.theme.ResidentTheme
-import java.time.Instant
+import com.habitatplus.app.ui.theme.HabitatPlusTheme
 import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.ZoneId
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReservationScreen(
     state: ParkingState = ParkingState(),
@@ -38,15 +41,74 @@ fun ReservationScreen(
     onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
-
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showEntryTimePicker by remember { mutableStateOf(false) }
-    var showExitTimePicker by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(state.reservationSuccess) {
         if (state.reservationSuccess) {
             onReservationSuccess()
         }
+    }
+
+    // Fotografia temporal del vehiculo.
+    var vehiclePhoto by remember {
+        mutableStateOf<Bitmap?>(null)
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            vehiclePhoto = bitmap
+        }
+    }
+
+    // Selector de fecha.
+    val datePicker = remember(context) {
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val selectedDate = LocalDate.of(
+                    year,
+                    month + 1,
+                    day
+                )
+
+                onIntent(
+                    ParkingIntent.DateChanged(
+                        selectedDate.format(
+                            DateTimeFormatter.ISO_LOCAL_DATE
+                        )
+                    )
+                )
+            },
+            LocalDate.now().year,
+            LocalDate.now().monthValue - 1,
+            LocalDate.now().dayOfMonth
+        ).apply {
+            datePicker.minDate = LocalDate.now()
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+        }
+    }
+
+    // Horarios en intervalos exactos de 30 minutos.
+    val timeSlots = remember {
+        (0 until 48).map { index ->
+            val hour = index / 2
+            val minute = if (index % 2 == 0) 0 else 30
+
+            String.format(
+                Locale.US,
+                "%02d:%02d",
+                hour,
+                minute
+            )
+        }
+    }
+
+    var selectingTime by remember {
+        mutableStateOf<String?>(null)
     }
 
     HabitatScaffold(
@@ -61,12 +123,14 @@ fun ReservationScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Spacer(Modifier.height(4.dp))
 
+            // Parqueo seleccionado.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -85,32 +149,28 @@ fun ReservationScreen(
                     Column {
                         Text(
                             text = state.reservationForm.parkingId,
-                            color = colors.onPrimaryContainer,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
 
                         Text(
-                            text = "Nivel Calle",
-                            color = colors.onPrimaryContainer,
+                            text = "Parqueo para visitantes",
                             fontSize = 10.sp
                         )
                     }
 
                     Surface(
-                        color = ParkingAvailableContainer,
-                        contentColor = ParkingAvailable,
+                        color = colors.secondaryContainer,
                         shape = RoundedCornerShape(20.dp)
                     ) {
                         Text(
-                            text = "Disponible",
+                            text = "Seleccionado",
                             modifier = Modifier.padding(
                                 horizontal = 10.dp,
                                 vertical = 5.dp
                             ),
-                            color = ParkingAvailable,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.SemiBold
+                            color = colors.onSecondaryContainer,
+                            fontSize = 10.sp
                         )
                     }
                 }
@@ -124,18 +184,20 @@ fun ReservationScreen(
                 onValueChange = {
                     onIntent(ParkingIntent.VisitorNameChanged(it))
                 },
-                isError = state.reservationForm.visitorNameError != null,
-                errorMessage = state.reservationForm.visitorNameError
+                isError =
+                    state.reservationForm.visitorNameError != null,
+                errorMessage =
+                    state.reservationForm.visitorNameError
             )
 
             HabitatField(
                 value = state.reservationForm.apartment,
                 label = "Apartamento",
-                supporting = "Asignado automáticamente",
+                supporting = "Asignado automaticamente",
                 readOnly = true
             )
 
-            FormSectionTitle("Datos del vehículo")
+            FormSectionTitle("Datos del vehiculo")
 
             HabitatField(
                 value = state.reservationForm.licensePlate,
@@ -143,15 +205,17 @@ fun ReservationScreen(
                 onValueChange = {
                     onIntent(ParkingIntent.LicensePlateChanged(it))
                 },
-                isError = state.reservationForm.licensePlateError != null,
-                errorMessage = state.reservationForm.licensePlateError
+                isError =
+                    state.reservationForm.licensePlateError != null,
+                errorMessage =
+                    state.reservationForm.licensePlateError
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(modifier = Modifier.weight(1f)) {
+                Box(Modifier.weight(1f)) {
                     HabitatField(
                         value = state.reservationForm.vehicleBrand,
                         label = "Marca",
@@ -163,7 +227,7 @@ fun ReservationScreen(
                     )
                 }
 
-                Box(modifier = Modifier.weight(1f)) {
+                Box(Modifier.weight(1f)) {
                     HabitatField(
                         value = state.reservationForm.vehicleColor,
                         label = "Color",
@@ -176,7 +240,8 @@ fun ReservationScreen(
                 }
             }
 
-            FormSectionTitle("Fotografía del vehículo")
+            // Camara del vehiculo.
+            FormSectionTitle("Fotografia del vehiculo")
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -184,9 +249,6 @@ fun ReservationScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = colors.surface,
                     contentColor = colors.onSurface
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 2.dp
                 )
             ) {
                 Column(
@@ -194,361 +256,246 @@ fun ReservationScreen(
                         .fillMaxWidth()
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_camera),
-                        contentDescription = null,
-                        tint = colors.primary,
-                        modifier = Modifier.size(30.dp)
-                    )
-
-                    Text(
-                        text = "Adjuntar foto del vehículo",
-                        color = colors.onSurface,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Text(
-                        text = "Opcional",
-                        fontSize = 9.sp,
-                        color = colors.onSurfaceVariant
-                    )
-
-                    // Integración de cámara pendiente.
-                    OutlinedButton(
-                        onClick = {},
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = colors.primary
+                    if (vehiclePhoto != null) {
+                        Image(
+                            bitmap = vehiclePhoto!!.asImageBitmap(),
+                            contentDescription =
+                                "Fotografia del vehiculo",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(170.dp),
+                            contentScale = ContentScale.Crop
                         )
+                    } else {
+                        Icon(
+                            painter = painterResource(
+                                R.drawable.ic_camera
+                            ),
+                            contentDescription = null,
+                            tint = colors.primary,
+                            modifier = Modifier.size(30.dp)
+                        )
+
+                        Text(
+                            text = "Adjuntar foto del vehiculo",
+                            color = colors.onSurface,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Text(
+                            text = "Opcional",
+                            color = colors.onSurfaceVariant,
+                            fontSize = 10.sp
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            cameraLauncher.launch(null)
+                        },
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Text(
-                            text = "Tomar fotografía",
-                            fontSize = 10.sp
+                            text = if (vehiclePhoto == null) {
+                                "Tomar fotografia"
+                            } else {
+                                "Cambiar fotografia"
+                            }
                         )
                     }
                 }
             }
 
+            // Fecha y horario.
             FormSectionTitle("Fecha y horario")
 
-            OutlinedButton(
-                onClick = { showDatePicker = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+            OutlinedCard(
+                onClick = {
+                    datePicker.show()
+                },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = if (state.reservationForm.date.isBlank()) {
-                        "Seleccionar fecha"
-                    } else {
-                        "Fecha: ${state.reservationForm.date}"
-                    }
-                )
-            }
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Fecha de reserva",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceVariant
+                    )
 
-            state.reservationForm.dateError?.let {
-                Text(
-                    text = it,
-                    color = colors.error,
-                    fontSize = 11.sp
-                )
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        text = state.reservationForm.date.ifBlank {
+                            "Seleccionar fecha"
+                        },
+                        color = colors.onSurface
+                    )
+
+                    state.reservationForm.dateError?.let {
+                        Text(it, color = colors.error)
+                    }
+                }
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedButton(
-                        onClick = { showEntryTimePicker = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(
-                            horizontal = 4.dp,
-                            vertical = 12.dp
-                        )
+                Box(Modifier.weight(1f)) {
+                    OutlinedCard(
+                        onClick = {
+                            selectingTime = "entry"
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = state.reservationForm.entryTime
-                                .ifBlank { "Hora ingreso" },
-                            fontSize = 12.sp
-                        )
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                "Hora ingreso",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+
+                            Spacer(Modifier.height(4.dp))
+
+                            Text(
+                                state.reservationForm.entryTime.ifBlank {
+                                    "Seleccionar"
+                                }
+                            )
+                        }
                     }
                 }
 
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedButton(
-                        onClick = { showExitTimePicker = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(
-                            horizontal = 4.dp,
-                            vertical = 12.dp
-                        )
+                Box(Modifier.weight(1f)) {
+                    OutlinedCard(
+                        onClick = {
+                            selectingTime = "exit"
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = state.reservationForm.exitTime
-                                .ifBlank { "Hora salida" },
-                            fontSize = 12.sp
-                        )
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                "Hora salida",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+
+                            Spacer(Modifier.height(4.dp))
+
+                            Text(
+                                state.reservationForm.exitTime.ifBlank {
+                                    "Seleccionar"
+                                }
+                            )
+                        }
                     }
                 }
             }
 
             state.reservationForm.entryTimeError?.let {
-                Text(
-                    text = it,
-                    color = colors.error,
-                    fontSize = 11.sp
-                )
+                Text(it, color = colors.error)
             }
 
             state.reservationForm.exitTimeError?.let {
+                Text(it, color = colors.error)
+            }
+
+            state.error?.let {
                 Text(
                     text = it,
-                    color = colors.error,
-                    fontSize = 11.sp
+                    color = colors.error
                 )
-            }
-
-            Text(
-                text = "Los horarios se seleccionan en intervalos de 30 minutos.",
-                fontSize = 11.sp,
-                color = colors.onSurfaceVariant
-            )
-
-            state.error?.let { message ->
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = colors.errorContainer,
-                    contentColor = colors.onErrorContainer,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = message,
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-
-            if (state.isSavingReservation) {
-                Text(
-                    text = "Guardando reserva…",
-                    color = colors.onBackground
-                )
-            }
-
-            if (state.reservationSuccess) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = colors.secondaryContainer,
-                    contentColor = colors.onSecondaryContainer,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = "Reserva realizada correctamente.",
-                        modifier = Modifier.padding(12.dp),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
             }
 
             Button(
                 onClick = {
                     onIntent(ParkingIntent.SubmitReservation)
                 },
+                enabled = !state.isSavingReservation,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 50.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.primary,
-                    contentColor = colors.onPrimary
-                ),
-                enabled = !state.isSavingReservation
+                    .height(50.dp),
+                shape = RoundedCornerShape(14.dp)
             ) {
-                Text(
-                    text = "Confirmar Reserva de Parqueo",
-                    fontWeight = FontWeight.SemiBold
-                )
+                if (state.isSavingReservation) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = colors.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        "Confirmar reserva de parqueo",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
         }
     }
 
-    if (showDatePicker) {
-        ParkingDatePickerDialog(
-            currentDate = state.reservationForm.date,
-            onDismiss = { showDatePicker = false },
-            onConfirm = { date ->
-                onIntent(ParkingIntent.DateChanged(date))
-                showDatePicker = false
-            }
-        )
-    }
+    // Dialogo de seleccion de horarios.
+    if (selectingTime != null) {
+        val isEntry = selectingTime == "entry"
 
-    if (showEntryTimePicker) {
-        ParkingTimePickerDialog(
-            title = "Hora de ingreso",
-            currentTime = state.reservationForm.entryTime,
-            onDismiss = { showEntryTimePicker = false },
-            onConfirm = { time ->
-                onIntent(ParkingIntent.EntryTimeChanged(time))
-                showEntryTimePicker = false
-            }
-        )
-    }
+        AlertDialog(
+            onDismissRequest = {
+                selectingTime = null
+            },
+            title = {
+                Text(
+                    if (isEntry) {
+                        "Seleccionar hora de ingreso"
+                    } else {
+                        "Seleccionar hora de salida"
+                    }
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 350.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    timeSlots.forEach { time ->
+                        TextButton(
+                            onClick = {
+                                if (isEntry) {
+                                    onIntent(
+                                        ParkingIntent.EntryTimeChanged(
+                                            time
+                                        )
+                                    )
+                                } else {
+                                    onIntent(
+                                        ParkingIntent.ExitTimeChanged(
+                                            time
+                                        )
+                                    )
+                                }
 
-    if (showExitTimePicker) {
-        ParkingTimePickerDialog(
-            title = "Hora de salida",
-            currentTime = state.reservationForm.exitTime,
-            onDismiss = { showExitTimePicker = false },
-            onConfirm = { time ->
-                onIntent(ParkingIntent.ExitTimeChanged(time))
-                showExitTimePicker = false
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ParkingDatePickerDialog(
-    currentDate: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
-    val initialDate = remember(currentDate) {
-        runCatching { LocalDate.parse(currentDate) }
-            .getOrNull()
-            ?: LocalDate.now()
-    }
-
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initialDate
-            .atStartOfDay()
-            .toInstant(ZoneOffset.UTC)
-            .toEpochMilli(),
-        selectableDates = object : SelectableDates {
-            override fun isSelectableDate(
-                utcTimeMillis: Long
-            ): Boolean {
-                val date = Instant.ofEpochMilli(utcTimeMillis)
-                    .atZone(ZoneOffset.UTC)
-                    .toLocalDate()
-
-                return !date.isBefore(LocalDate.now())
-            }
-        }
-    )
-
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val millis = datePickerState.selectedDateMillis
-                    if (millis != null) {
-                        val date = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneOffset.UTC)
-                            .toLocalDate()
-
-                        if (!date.isBefore(LocalDate.now())) {
-                            onConfirm(date.toString())
+                                selectingTime = null
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(time)
                         }
                     }
-                },
-                enabled = datePickerState.selectedDateMillis != null
-            ) {
-                Text("Aceptar")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar")
-            }
-        }
-    ) {
-        DatePicker(state = datePickerState)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ParkingTimePickerDialog(
-    title: String,
-    currentTime: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
-    val initialTime = remember(currentTime) {
-        runCatching {
-            LocalTime.parse(currentTime)
-        }.getOrNull() ?: LocalTime.of(8, 0)
-    }
-
-    val timePickerState = rememberTimePickerState(
-        initialHour = initialTime.hour,
-        initialMinute = initialTime.minute,
-        is24Hour = true
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(title)
-        },
-        text = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                TimePicker(state = timePickerState)
-
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    text = "La hora se ajustará al intervalo de 30 minutos más cercano.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val totalMinutes =
-                        timePickerState.hour * 60 +
-                                timePickerState.minute
-
-                    // Redondear a intervalos de 30 minutos.
-                    val roundedMinutes =
-                        ((totalMinutes + 15) / 30) * 30
-
-                    val hour = (roundedMinutes / 60) % 24
-                    val minute = roundedMinutes % 60
-
-                    val formattedTime = String.format(
-                        java.util.Locale.US,
-                        "%02d:%02d",
-                        hour,
-                        minute
-                    )
-
-                    onConfirm(formattedTime)
                 }
-            ) {
-                Text("Aceptar")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectingTime = null
+                    }
+                ) {
+                    Text("Cerrar")
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancelar")
-            }
-        }
-    )
+        )
+    }
 }
 
 @Composable
@@ -561,6 +508,8 @@ private fun HabitatField(
     isError: Boolean = false,
     errorMessage: String? = null
 ) {
+    val colors = MaterialTheme.colorScheme
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -570,12 +519,7 @@ private fun HabitatField(
                 { Text(errorMessage) }
             }
             supporting != null -> {
-                {
-                    Text(
-                        text = supporting,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
+                { Text(supporting, fontSize = 9.sp) }
             }
             else -> null
         },
@@ -583,6 +527,15 @@ private fun HabitatField(
         readOnly = readOnly,
         isError = isError,
         singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = colors.onSurface,
+            unfocusedTextColor = colors.onSurface,
+            focusedContainerColor = colors.surface,
+            unfocusedContainerColor = colors.surface,
+            focusedBorderColor = colors.primary,
+            unfocusedBorderColor = colors.outline,
+            cursorColor = colors.primary
+        ),
         shape = RoundedCornerShape(12.dp)
     )
 }
@@ -598,28 +551,18 @@ private fun FormSectionTitle(title: String) {
     )
 }
 
-@Preview(
-    name = "Reservar Parqueo - Claro",
-    showBackground = true,
-    widthDp = 411,
-    heightDp = 891
-)
+@Preview(name = "Reserva clara", showBackground = true)
 @Composable
-private fun ReservationScreenLightPreview() {
-    ResidentTheme(darkTheme = false) {
+private fun ReservationLightPreview() {
+    HabitatPlusTheme(darkTheme = false) {
         ReservationScreen()
     }
 }
 
-@Preview(
-    name = "Reservar Parqueo - Oscuro",
-    showBackground = true,
-    widthDp = 411,
-    heightDp = 891
-)
+@Preview(name = "Reserva oscura", showBackground = true)
 @Composable
-private fun ReservationScreenDarkPreview() {
-    ResidentTheme(darkTheme = true) {
+private fun ReservationDarkPreview() {
+    HabitatPlusTheme(darkTheme = true) {
         ReservationScreen()
     }
 }

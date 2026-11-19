@@ -27,7 +27,6 @@ import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.ResidentTheme
 
-
 @Composable
 fun ProfileScreen(
     state: ProfileState,
@@ -39,14 +38,12 @@ fun ProfileScreen(
     onNotificationsClick: () -> Unit = {},
     unreadCount: Int = 0
 ) {
-
     LaunchedEffect(state.settingsRequested) {
         if (state.settingsRequested) {
             onIntent(ProfileIntent.SettingsNavigationHandled)
             onSettings()
         }
     }
-
 
     HabitatScaffold(
         title = "Perfil",
@@ -55,7 +52,6 @@ fun ProfileScreen(
         onNotificationsClick = onNotificationsClick,
         unreadCount = unreadCount
     ) { innerPadding ->
-
 
         ResidentPage(
             modifier = modifier
@@ -87,27 +83,22 @@ fun ProfileScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme
-                                .secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme
-                                .onSecondaryContainer
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor =
+                                MaterialTheme.colorScheme.onSecondaryContainer
                         ) {
                             Column(
                                 modifier = Modifier.padding(16.dp),
-                                verticalArrangement =
-                                    Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
                                     text = message,
-                                    style = MaterialTheme.typography
-                                        .bodyMedium
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
 
                                 TextButton(
                                     onClick = {
-                                        onIntent(
-                                            ProfileIntent.DismissSuccess
-                                        )
+                                        onIntent(ProfileIntent.DismissSuccess)
                                     }
                                 ) {
                                     Text("Entendido")
@@ -116,14 +107,11 @@ fun ProfileScreen(
                         }
                     }
 
-                    // Tarjeta principal del usuario.
                     ResidentCard {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement =
-                                Arrangement.spacedBy(16.dp),
-                            verticalAlignment =
-                                Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (profileImage != null) {
                                 Image(
@@ -135,27 +123,21 @@ fun ProfileScreen(
                                     contentScale = ContentScale.Crop
                                 )
                             } else {
-                                ResidentAvatar(
-                                    initials = state.initials
-                                )
+                                ResidentAvatar(initials = state.initials)
                             }
 
                             Column(
                                 modifier = Modifier.weight(1f),
-                                verticalArrangement =
-                                    Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
                                     text = state.name,
-                                    style = MaterialTheme.typography
-                                        .titleLarge,
+                                    style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold
                                 )
 
                                 ResidentBadge(
-                                    text = when (
-                                        state.role.lowercase()
-                                    ) {
+                                    text = when (state.role.lowercase()) {
                                         "resident" -> "Residente"
                                         "admin" -> "Administrador"
                                         else -> state.role
@@ -163,11 +145,17 @@ fun ProfileScreen(
                                 )
 
                                 Text(
-                                    text = residenceSummary(state),
-                                    style = MaterialTheme.typography
-                                        .bodyMedium,
-                                    color = MaterialTheme.colorScheme
-                                        .onSurfaceVariant
+                                    text = if (
+                                        state.verified &&
+                                        state.apartment.isNotBlank()
+                                    ) {
+                                        residenceSummary(state)
+                                    } else {
+                                        "Residencia pendiente de verificación"
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color =
+                                        MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -184,12 +172,13 @@ fun ProfileScreen(
 
                     ResidentField(
                         label = "UNIDAD REGISTRADA",
-                        value = state.condominium.ifBlank {
-                            "Sin condominio registrado"
+                        value = if (state.verified) {
+                            residenceSummary(state)
+                        } else {
+                            "Pendiente de aprobación"
                         }
                     )
 
-                    // Informacion de contacto.
                     ResidentCard {
                         Text(
                             text = "Información de contacto",
@@ -215,14 +204,17 @@ fun ProfileScreen(
                     Text(
                         text = "GESTIÓN Y ACCESOS",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     ResidentCard {
                         ResidentOption(
                             title = "Mis datos de residencia",
-                            subtitle = residenceSummary(state),
+                            subtitle = if (state.verified) {
+                                residenceSummary(state)
+                            } else {
+                                "Pendiente de aprobación"
+                            },
                             onClick = {
                                 onIntent(ProfileIntent.ShowResidence)
                             }
@@ -246,8 +238,7 @@ fun ProfileScreen(
                             "Perfil pendiente de verificación."
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -271,9 +262,7 @@ fun ProfileScreen(
     }
 }
 
-private fun residenceSummary(
-    state: ProfileState
-): String {
+private fun residenceSummary(state: ProfileState): String {
     val parts = listOf(
         state.tower,
         state.apartment
@@ -301,8 +290,7 @@ private fun ProfileResidenceDialog(
                 modifier = Modifier.verticalScroll(
                     rememberScrollState()
                 ),
-                verticalArrangement =
-                    Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 ResidentField(
                     label = "Condominio",
@@ -320,8 +308,12 @@ private fun ProfileResidenceDialog(
 
                 ResidentField(
                     label = "Apartamento",
-                    value = state.apartment.ifBlank {
-                        "No registrado"
+                    value = if (state.verified) {
+                        state.apartment.ifBlank {
+                            "No registrado"
+                        }
+                    } else {
+                        "Pendiente de aprobación"
                     }
                 )
 
@@ -335,12 +327,10 @@ private fun ProfileResidenceDialog(
                 )
 
                 Text(
-                    text = "El rol y los datos de residencia " +
-                            "activos están sujetos a validación " +
-                            "administrativa.",
+                    text = "Los datos de residencia están sujetos " +
+                        "a validación administrativa.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme
-                        .onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
@@ -371,8 +361,7 @@ private fun ProfileEditDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement =
-                    Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
                     text = "Información personal",
@@ -412,22 +401,17 @@ private fun ProfileEditDialog(
                 )
 
                 Text(
-                    text = "Los cambios de condominio, torre y " +
-                            "apartamento se enviarán para revisión. " +
-                            "Tu residencia actual no cambiará " +
-                            "hasta que sean aprobados.",
+                    text = "Los cambios de condominio, torre y apartamento " +
+                        "se enviarán para revisión administrativa.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme
-                        .onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 ProfileEditableField(
                     value = state.draftCondominium,
                     label = "Condominio",
                     onValueChange = {
-                        onIntent(
-                            ProfileIntent.ChangeCondominium(it)
-                        )
+                        onIntent(ProfileIntent.ChangeCondominium(it))
                     },
                     error = state.condominiumError,
                     enabled = !state.isLoading,
@@ -438,9 +422,7 @@ private fun ProfileEditDialog(
                     value = state.draftTower,
                     label = "Torre",
                     onValueChange = {
-                        onIntent(
-                            ProfileIntent.ChangeTower(it)
-                        )
+                        onIntent(ProfileIntent.ChangeTower(it))
                     },
                     error = state.towerError,
                     enabled = !state.isLoading,
@@ -449,11 +431,9 @@ private fun ProfileEditDialog(
 
                 ProfileEditableField(
                     value = state.draftApartment,
-                    label = "Apartamento",
+                    label = "Apartamento solicitado",
                     onValueChange = {
-                        onIntent(
-                            ProfileIntent.ChangeApartment(it)
-                        )
+                        onIntent(ProfileIntent.ChangeApartment(it))
                     },
                     error = state.apartmentError,
                     enabled = !state.isLoading,
@@ -490,11 +470,6 @@ private fun ProfileEditDialog(
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth()
                     )
-
-                    Text(
-                        text = "Guardando cambios...",
-                        style = MaterialTheme.typography.bodySmall
-                    )
                 }
             }
         },
@@ -517,7 +492,7 @@ private fun ProfileEditDialog(
             ) {
                 Text("Cancelar")
             }
-        }
+        )
     )
 }
 
@@ -547,13 +522,9 @@ private fun ProfileEditableField(
             keyboardType = keyboardType
         ),
         isError = error != null,
-        supportingText = if (
-            error != null || supporting != null
-        ) {
+        supportingText = if (error != null || supporting != null) {
             {
-                Text(
-                    text = error ?: supporting.orEmpty()
-                )
+                Text(error ?: supporting.orEmpty())
             }
         } else {
             null
@@ -561,60 +532,48 @@ private fun ProfileEditableField(
     )
 }
 
-@Preview(
-    name = "Perfil - Claro",
-    showBackground = true,
-    widthDp = 412,
-    heightDp = 1000
-)
+@Preview(name = "Perfil claro", showBackground = true)
 @Composable
-private fun ProfileScreenLightPreview() {
+private fun ProfileLightPreview() {
     ResidentTheme(darkTheme = false) {
         ProfileScreen(
             state = ProfileState(
                 isLoading = false,
-                name = "Usuario de prueba",
-                initials = "UP",
+                name = "Usuario de ejemplo",
+                initials = "UE",
                 role = "resident",
                 condominium = "Condominio de prueba",
                 tower = "Torre A",
                 apartment = "A-203",
                 email = "prueba@example.com",
                 phone = "5555-0100",
-                verified = false
+                verified = true
             ),
             onIntent = {},
-            onSettings = {},
-            onDestinationClick = {}
+            onSettings = {}
         )
     }
 }
 
-@Preview(
-    name = "Perfil - Oscuro",
-    showBackground = true,
-    widthDp = 412,
-    heightDp = 1000
-)
+@Preview(name = "Perfil oscuro", showBackground = true)
 @Composable
-private fun ProfileScreenDarkPreview() {
+private fun ProfileDarkPreview() {
     ResidentTheme(darkTheme = true) {
         ProfileScreen(
             state = ProfileState(
                 isLoading = false,
-                name = "Usuario de prueba",
-                initials = "UP",
+                name = "Usuario de ejemplo",
+                initials = "UE",
                 role = "resident",
                 condominium = "Condominio de prueba",
                 tower = "Torre B",
                 apartment = "B-204",
                 email = "prueba@example.com",
                 phone = "5555-0100",
-                verified = false
+                verified = true
             ),
             onIntent = {},
-            onSettings = {},
-            onDestinationClick = {}
+            onSettings = {}
         )
     }
 }

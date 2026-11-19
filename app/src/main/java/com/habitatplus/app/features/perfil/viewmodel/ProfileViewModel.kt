@@ -4,60 +4,33 @@ package com.habitatplus.app.features.perfil.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FieldValue
+import com.habitatplus.app.core.session.ResidentUser
+import com.habitatplus.app.core.session.UserSessionRepository
 import com.habitatplus.app.features.perfil.intent.ProfileIntent
 import com.habitatplus.app.features.perfil.state.ProfileState
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.util.Locale
 
 class ProfileViewModel : ViewModel() {
 
+    private val repository = UserSessionRepository()
     private val auth = FirebaseAuth.getInstance()
-    private val firestore = FirebaseFirestore.getInstance()
 
     private val _state = MutableStateFlow(ProfileState())
 
     val state: StateFlow<ProfileState> =
         _state.asStateFlow()
 
-    private var profileJob: Job? = null
-    private var saveJob: Job? = null
-    private var loadedUserId: String? = null
-
-    private val authListener =
-        FirebaseAuth.AuthStateListener { firebaseAuth ->
-
-            val userId = firebaseAuth.currentUser?.uid
-
-            if (userId != loadedUserId) {
-                profileJob?.cancel()
-                saveJob?.cancel()
-
-                loadedUserId = userId
-                _state.value = ProfileState()
-
-                if (userId != null) {
-                    loadProfile()
-                } else {
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Debes iniciar sesión."
-                        )
-                    }
-                }
-            }
-        }
+    private var loadedUid: String? = null
+    private var requestVersion = 0
+    private var isSaving = false
 
     init {
-        auth.addAuthStateListener(authListener)
         loadProfile()
     }
 
@@ -81,73 +54,67 @@ class ProfileViewModel : ViewModel() {
             ProfileIntent.StartEditing -> startEditing()
 
             is ProfileIntent.ChangeName -> {
-                _state.update { current ->
-                    if (current.isEditing && !current.isLoading) {
-                        current.copy(
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
                             draftName = intent.value,
                             nameError = null
                         )
-                    } else {
-                        current
-                    }
+                    } else it
                 }
             }
 
             is ProfileIntent.ChangePhone -> {
-                _state.update { current ->
-                    if (current.isEditing && !current.isLoading) {
-                        current.copy(
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
                             draftPhone = intent.value,
                             phoneError = null
                         )
-                    } else {
-                        current
-                    }
+                    } else it
                 }
             }
 
             is ProfileIntent.ChangeCondominium -> {
-                _state.update { current ->
-                    if (current.isEditing && !current.isLoading) {
-                        current.copy(
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
                             draftCondominium = intent.value,
                             condominiumError = null
                         )
-                    } else {
-                        current
-                    }
+                    } else it
                 }
             }
 
             is ProfileIntent.ChangeTower -> {
-                _state.update { current ->
-                    if (current.isEditing && !current.isLoading) {
-                        current.copy(
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
                             draftTower = intent.value,
                             towerError = null
                         )
-                    } else {
-                        current
-                    }
+                    } else it
                 }
             }
 
             is ProfileIntent.ChangeApartment -> {
-                _state.update { current ->
-                    if (current.isEditing && !current.isLoading) {
-                        current.copy(
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
                             draftApartment = intent.value,
                             apartmentError = null
                         )
-                    } else {
-                        current
-                    }
+                    } else it
                 }
             }
 
             ProfileIntent.SaveChanges -> saveChanges()
 
-            ProfileIntent.CancelEditing -> cancelEditing()
+            ProfileIntent.CancelEditing -> {
+                if (!isSaving) {
+                    cancelEditing()
+                }
+            }
 
             ProfileIntent.DismissSuccess -> {
                 _state.update {
@@ -169,131 +136,93 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    private fun loadProfile() {
-        val user = auth.currentUser
+    fun clearSession() {
+        requestVersion++
+        loadedUid = null
+        isSaving = false
+        _state.value = ProfileState()
+    }
 
-        if (user == null) {
-            profileJob?.cancel()
-            loadedUserId = null
+    fun loadProfile() {
+        val uid = auth.currentUser?.uid
 
-            _state.value = ProfileState(
-                isLoading = false,
-                error = "Debes iniciar sesión."
-            )
+        if (uid == null) {
+            clearSession()
+
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    error = "Debes iniciar sesión."
+                )
+            }
             return
         }
 
-        val userId = user.uid
+        requestVersion++
+        val request = requestVersion
+        loadedUid = uid
 
-        profileJob?.cancel()
-        loadedUserId = userId
+        _state.value = ProfileState(isLoading = true)
 
-        _state.update {
-            it.copy(
-                isLoading = true,
-                error = null,
-                isEditing = false
-            )
-        }
-
-        profileJob = viewModelScope.launch {
+        viewModelScope.launch {
             try {
-                val document = firestore
-                    .collection("users")
-                    .document(userId)
-                    .get()
-                    .await()
+                val user = repository.getCurrentUser()
 
-                if (auth.currentUser?.uid != userId) {
+                if (!sameSession(uid, request)) {
                     return@launch
                 }
 
-                if (!document.exists()) {
+                showUser(user)
+
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(uid, request)) {
                     _state.update {
                         it.copy(
                             isLoading = false,
-                            error = "No se encontró tu perfil."
-                        )
-                    }
-                    return@launch
-                }
-
-                val name = document
-                    .getString("name")
-                    .orEmpty()
-                    .trim()
-
-                val lastName = document
-                    .getString("lastName")
-                    .orEmpty()
-                    .trim()
-
-                val fullName = listOf(name, lastName)
-                    .filter { it.isNotBlank() }
-                    .joinToString(" ")
-                    .ifBlank { "Residente" }
-
-                val apartment = document
-                    .getString("apartment")
-                    .orEmpty()
-                    .trim()
-
-                val condominium = document
-                    .getString("condominium")
-                    .orEmpty()
-                    .trim()
-
-                val tower = document
-                    .getString("tower")
-                    .orEmpty()
-                    .trim()
-
-                val phone = document
-                    .getString("phone")
-                    .orEmpty()
-                    .trim()
-
-                val email = document
-                    .getString("email")
-                    ?.takeIf { it.isNotBlank() }
-                    ?: user.email.orEmpty()
-
-                val role = document
-                    .getString("role")
-                    .orEmpty()
-                    .ifBlank { "resident" }
-
-                val verified = document
-                    .getBoolean("verified") ?: false
-
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        error = null,
-                        isOffline = false,
-                        name = fullName,
-                        initials = buildInitials(fullName),
-                        role = role,
-                        condominium = condominium,
-                        tower = tower,
-                        apartment = apartment,
-                        email = email,
-                        phone = phone,
-                        verified = verified,
-                        isEditing = false
-                    )
-                }
-
-            } catch (exception: Exception) {
-                if (auth.currentUser?.uid == userId) {
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "No se pudo cargar tu perfil."
+                            error = "No se pudo cargar el perfil: " +
+                                (e.localizedMessage
+                                    ?: "Error desconocido")
                         )
                     }
                 }
             }
+        }
+    }
+
+    private fun showUser(user: ResidentUser) {
+        val approved =
+            user.residenceStatus == "approved"
+
+        val displayName = user.fullName.ifBlank {
+            user.email.substringBefore("@")
+        }
+
+        _state.update {
+            it.copy(
+                isLoading = false,
+                error = null,
+                isOffline = false,
+                name = displayName,
+                initials = buildInitials(displayName),
+                role = when (user.role.lowercase()) {
+                    "admin" -> "Administrador"
+                    else -> "Residente"
+                },
+                condominium = "Habitat+",
+                tower = "",
+                apartment = if (
+                    approved && user.apartment.isNotBlank()
+                ) {
+                    user.apartment
+                } else {
+                    ""
+                },
+                email = user.email,
+                phone = user.phone,
+                verified = approved
+            )
         }
     }
 
@@ -302,7 +231,8 @@ class ProfileViewModel : ViewModel() {
             if (
                 current.isLoading ||
                 current.error != null ||
-                current.isEditing
+                current.isEditing ||
+                isSaving
             ) {
                 current
             } else {
@@ -328,182 +258,69 @@ class ProfileViewModel : ViewModel() {
     private fun saveChanges() {
         val current = _state.value
 
-        if (!current.isEditing || current.isLoading) {
-            return
-        }
+        if (!current.isEditing || isSaving) return
 
-        val userId = auth.currentUser?.uid
+        val uid = auth.currentUser?.uid ?: return
 
-        if (userId.isNullOrBlank()) {
-            _state.update {
-                it.copy(error = "Debes iniciar sesión.")
-            }
-            return
-        }
-
-        val name = current.draftName
-            .trim()
+        val name = current.draftName.trim()
             .replace(Regex("\\s+"), " ")
 
         val phone = current.draftPhone.trim()
 
-        val condominium = current.draftCondominium.trim()
-        val tower = current.draftTower.trim()
-        val apartment = current.draftApartment.trim()
-
         val nameError = validateName(name)
         val phoneError = validatePhone(phone)
 
-        val condominiumError =
-            validateResidenceField(
-                condominium,
-                "condominio",
-                100
-            )
-
-        val towerError =
-            validateResidenceField(
-                tower,
-                "torre",
-                50
-            )
-
-        val apartmentError =
-            validateResidenceField(
-                apartment,
-                "apartamento",
-                30
-            )
-
-        if (
-            nameError != null ||
-            phoneError != null ||
-            condominiumError != null ||
-            towerError != null ||
-            apartmentError != null
-        ) {
+        if (nameError != null || phoneError != null) {
             _state.update {
                 it.copy(
                     nameError = nameError,
-                    phoneError = phoneError,
-                    condominiumError = condominiumError,
-                    towerError = towerError,
-                    apartmentError = apartmentError
+                    phoneError = phoneError
                 )
             }
             return
         }
 
         val residenceChanged =
-            condominium != current.condominium ||
-                    tower != current.tower ||
-                    apartment != current.apartment
+            current.draftCondominium.trim() !=
+                current.condominium ||
+            current.draftTower.trim() != current.tower ||
+            current.draftApartment.trim() !=
+                current.apartment
 
-        _state.update {
-            it.copy(
-                isLoading = true,
-                error = null
-            )
+        if (residenceChanged) {
+            _state.update {
+                it.copy(
+                    apartmentError =
+                        "Los cambios de residencia deben " +
+                        "ser gestionados por la administración.",
+                    successMessage = null
+                )
+            }
+            return
         }
 
-        saveJob?.cancel()
+        isSaving = true
+        val request = ++requestVersion
 
-        saveJob = viewModelScope.launch {
+        viewModelScope.launch {
             try {
-                val userDocument = firestore
-                    .collection("users")
-                    .document(userId)
+                repository.updateProfile(name, phone)
 
-                if (auth.currentUser?.uid != userId) {
+                if (!sameSession(uid, request)) {
                     return@launch
                 }
 
-                // Mantener la estructura name/lastName
-                // que utiliza el registro.
-                val existingDocument = userDocument
-                    .get()
-                    .await()
+                val updatedUser = repository.getCurrentUser()
 
-                if (!existingDocument.exists()) {
-                    throw IllegalStateException(
-                        "No se encontró tu perfil."
-                    )
-                }
-
-                if (auth.currentUser?.uid != userId) {
+                if (!sameSession(uid, request)) {
                     return@launch
                 }
 
-                val existingLastName = existingDocument
-                    .getString("lastName")
-                    .orEmpty()
-                    .trim()
-
-                val firstName: String
-                val lastName: String
-
-                if (
-                    existingLastName.isNotBlank() &&
-                    name.endsWith(
-                        existingLastName,
-                        ignoreCase = true
-                    )
-                ) {
-                    firstName = name
-                        .dropLast(existingLastName.length)
-                        .trim()
-                    lastName = existingLastName
-                } else {
-                    val parts = name.split(" ", limit = 2)
-                    firstName = parts.first()
-                    lastName = parts.getOrNull(1).orEmpty()
-                }
-
-                // Actualizar solamente datos de contacto.
-                // No se modifican permisos ni verificación.
-                userDocument.update(
-                    mapOf(
-                        "name" to firstName,
-                        "lastName" to lastName,
-                        "phone" to phone
-                    )
-                ).await()
-
-                if (auth.currentUser?.uid != userId) {
-                    return@launch
-                }
-
-                if (residenceChanged) {
-                    // Solicitud pendiente de revisión.
-                    // No modifica la residencia activa.
-                    firestore
-                        .collection("residence_change_requests")
-                        .document(userId)
-                        .set(
-                            mapOf(
-                                "userId" to userId,
-                                "condominium" to condominium,
-                                "tower" to tower,
-                                "apartment" to apartment,
-                                "status" to "pending",
-                                "requestedAt" to
-                                        FieldValue.serverTimestamp()
-                            )
-                        )
-                        .await()
-                }
-
-                if (auth.currentUser?.uid != userId) {
-                    return@launch
-                }
+                showUser(updatedUser)
 
                 _state.update {
                     it.copy(
-                        isLoading = false,
                         isEditing = false,
-                        name = name,
-                        initials = buildInitials(name),
-                        phone = phone,
                         draftName = "",
                         draftPhone = "",
                         draftCondominium = "",
@@ -515,29 +332,25 @@ class ProfileViewModel : ViewModel() {
                         towerError = null,
                         apartmentError = null,
                         successMessage =
-                            if (residenceChanged) {
-                                "Datos de contacto guardados. " +
-                                        "Tu solicitud de cambio de " +
-                                        "residencia quedó pendiente " +
-                                        "de revisión."
-                            } else {
-                                "Los cambios de tu perfil " +
-                                        "se guardaron."
-                            }
+                            "Los cambios de tu perfil se guardaron."
                     )
                 }
 
-            } catch (exception: Exception) {
-                if (auth.currentUser?.uid == userId) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(uid, request)) {
                     _state.update {
                         it.copy(
-                            isLoading = false,
-                            error =
-                                "No se pudieron guardar todos " +
-                                        "los cambios. Verifica la conexión " +
-                                        "y vuelve a cargar el perfil."
+                            phoneError = "No se pudo guardar: " +
+                                (e.localizedMessage ?: "Error"),
+                            successMessage = null
                         )
                     }
+                }
+            } finally {
+                if (requestVersion == request) {
+                    isSaving = false
                 }
             }
         }
@@ -561,24 +374,8 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    private fun validateResidenceField(
-        value: String,
-        field: String,
-        maxLength: Int
-    ): String? {
-        return when {
-            value.isBlank() ->
-                "Ingresa el $field."
-
-            value.length > maxLength ->
-                "El campo $field es demasiado largo."
-
-            else -> null
-        }
-    }
-
-    private fun validateName(name: String): String? {
-        return when {
+    private fun validateName(name: String): String? =
+        when {
             name.isBlank() ->
                 "Ingresa tu nombre."
 
@@ -593,42 +390,36 @@ class ProfileViewModel : ViewModel() {
 
             else -> null
         }
-    }
 
     private fun validatePhone(phone: String): String? {
         if (phone.isBlank()) return null
 
-        val allowedFormat = Regex("^\\+?[0-9() -]+$")
-
-        if (!allowedFormat.matches(phone)) {
-            return "Usa números, espacios, guiones o paréntesis. " +
-                    "El signo + solo puede ir al inicio."
+        if (!Regex("^\\+?[0-9() -]+$").matches(phone)) {
+            return "Formato de teléfono inválido."
         }
 
-        val digitCount = phone.count {
-            it in '0'..'9'
-        }
+        val digits = phone.count { it.isDigit() }
 
-        return if (digitCount !in 8..15) {
-            "El teléfono debe contener entre 8 y 15 dígitos."
+        return if (digits !in 8..15) {
+            "El teléfono debe tener entre 8 y 15 dígitos."
         } else {
             null
         }
     }
 
-    private fun buildInitials(name: String): String {
-        return name
-            .split(" ")
+    private fun buildInitials(name: String): String =
+        name.split(" ")
             .filter { it.isNotBlank() }
             .take(2)
             .joinToString("") { it.take(1) }
             .uppercase(Locale.getDefault())
-    }
 
-    override fun onCleared() {
-        auth.removeAuthStateListener(authListener)
-        profileJob?.cancel()
-        saveJob?.cancel()
-        super.onCleared()
+    private fun sameSession(
+        uid: String,
+        request: Int
+    ): Boolean {
+        return auth.currentUser?.uid == uid &&
+            loadedUid == uid &&
+            requestVersion == request
     }
 }

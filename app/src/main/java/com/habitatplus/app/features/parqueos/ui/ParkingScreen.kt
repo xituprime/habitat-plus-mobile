@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.parqueos.ui
 
 import androidx.compose.foundation.clickable
@@ -21,10 +22,10 @@ import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.*
 
-
 @Composable
 fun ParkingScreen(
     state: ParkingState = ParkingState(),
+    residentApartment: String = "",
     onIntent: (ParkingIntent) -> Unit = {},
     onReservationClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
@@ -32,6 +33,7 @@ fun ParkingScreen(
     onNotificationsClick: () -> Unit = {},
     unreadCount: Int = 0
 ) {
+    val colors = MaterialTheme.colorScheme
 
     val colors = MaterialTheme.colorScheme
 
@@ -62,23 +64,29 @@ fun ParkingScreen(
                 ) {
                     Column {
                         Text(
-                            text = "P-12",
+                            text = "Sin asignación",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = colors.onSurface
                         )
 
                         Text(
-                            text = "Apartamento A-203",
+                            text = if (
+                                residentApartment.isBlank() ||
+                                residentApartment == "Sin asignar"
+                            ) {
+                                "Residencia pendiente de asignación"
+                            } else {
+                                "Apartamento $residentApartment"
+                            },
                             fontSize = 11.sp,
                             color = colors.onSurfaceVariant
                         )
                     }
 
                     StatusChip(
-                        text = "Activo",
-                        color = ParkingAvailable,
-                        background = ParkingAvailableContainer
+                        text = "● Sin asignar",
+                        status = ChipStatus.NEUTRAL
                     )
                 }
 
@@ -95,7 +103,7 @@ fun ParkingScreen(
                         SmallLabel("UBICACIÓN")
 
                         Text(
-                            text = "Sótano 1",
+                            text = "No registrada",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = colors.onSurface
@@ -109,11 +117,10 @@ fun ParkingScreen(
 
                         Surface(
                             color = colors.primaryContainer,
-                            contentColor = colors.onPrimaryContainer,
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = "HAB-892",
+                                text = "No registrada",
                                 modifier = Modifier.padding(
                                     horizontal = 10.dp,
                                     vertical = 5.dp
@@ -138,8 +145,7 @@ fun ParkingScreen(
                     text = "${state.visitorParkings.count {
                         it.status == ParkingStatus.AVAILABLE
                     }} disponibles",
-                    color = ParkingAvailable,
-                    background = ParkingAvailableContainer
+                    status = ChipStatus.SUCCESS
                 )
             }
 
@@ -163,24 +169,15 @@ fun ParkingScreen(
                         ParkingStatus.MAINTENANCE -> "Mantenimiento"
                         else -> "Asignado"
                     },
-                    statusColor = when {
-                        available -> ParkingAvailable
-                        occupied -> ParkingOccupied
-                        else -> ParkingMaintenance
-                    },
-                    statusBackground = when {
-                        available -> ParkingAvailableContainer
-                        occupied -> ParkingOccupiedContainer
-                        else -> ParkingMaintenanceContainer
+                    chipStatus = when {
+                        available -> ChipStatus.SUCCESS
+                        occupied -> ChipStatus.ERROR
+                        else -> ChipStatus.WARNING
                     },
                     message = when {
-                        available -> "Listo para asignación inmediata"
-
+                        available -> "Selecciona fecha y horario para reservar"
                         occupied ->
-                            "Ocupado hasta ${
-                                parking.occupiedUntil ?: "hora no disponible"
-                            }"
-
+                            "Ocupado hasta ${parking.occupiedUntil ?: "hora no disponible"}"
                         else -> "Mantenimiento preventivo programado"
                     },
                     showReserve = available,
@@ -195,7 +192,8 @@ fun ParkingScreen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 SectionTitle("Últimas Reservas")
 
@@ -219,31 +217,26 @@ fun ParkingScreen(
                 )
             }
 
-            Row(
+            Button(
+                onClick = {
+                    state.visitorParkings
+                        .firstOrNull {
+                            it.status == ParkingStatus.AVAILABLE
+                        }
+                        ?.let { parking ->
+                            onIntent(
+                                ParkingIntent.StartReservation(parking.id)
+                            )
+                            onReservationClick()
+                        }
+                },
+                enabled = state.visitorParkings.any {
+                    it.status == ParkingStatus.AVAILABLE
+                },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                shape = RoundedCornerShape(14.dp)
             ) {
-                Button(
-                    onClick = {
-                        state.visitorParkings
-                            .firstOrNull {
-                                it.status == ParkingStatus.AVAILABLE
-                            }
-                            ?.let { parking ->
-                                onIntent(
-                                    ParkingIntent.StartReservation(parking.id)
-                                )
-                                onReservationClick()
-                            }
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colors.primary,
-                        contentColor = colors.onPrimary
-                    )
-                ) {
-                    Text("+  Nueva Reserva")
-                }
+                Text("+ Nueva reserva")
             }
 
             Spacer(Modifier.height(8.dp))
@@ -251,16 +244,66 @@ fun ParkingScreen(
     }
 }
 
+private enum class ChipStatus {
+    SUCCESS, ERROR, WARNING, NEUTRAL
+}
+
+@Composable
+private fun StatusChip(
+    text: String,
+    status: ChipStatus
+) {
+    val colors = MaterialTheme.colorScheme
+
+    val foreground = when (status) {
+        ChipStatus.SUCCESS -> Color(0xFF22C55E)
+        ChipStatus.ERROR -> colors.error
+        ChipStatus.WARNING -> Color(0xFFF59E0B)
+        ChipStatus.NEUTRAL -> colors.onSurfaceVariant
+    }
+
+    Surface(
+        color = foreground.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(
+                horizontal = 9.dp,
+                vertical = 5.dp
+            ),
+            color = when (status) {
+                ChipStatus.SUCCESS -> {
+                    if (colors.background == Color(0xFF0F172A)) {
+                        Color(0xFF86EFAC)
+                    } else {
+                        Color(0xFF166534)
+                    }
+                }
+                ChipStatus.WARNING -> {
+                    if (colors.background == Color(0xFF0F172A)) {
+                        Color(0xFFFDE68A)
+                    } else {
+                        Color(0xFF92400E)
+                    }
+                }
+                else -> foreground
+            },
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
 @Composable
 private fun VisitorCard(
-    onReserveClick: () -> Unit = {},
     code: String,
     location: String,
     status: String,
-    statusColor: Color,
-    statusBackground: Color,
+    chipStatus: ChipStatus,
     message: String,
-    showReserve: Boolean = false
+    showReserve: Boolean,
+    onReserveClick: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
 
@@ -272,6 +315,7 @@ private fun VisitorCard(
             Column {
                 Text(
                     text = code,
+                    color = colors.onSurface,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = colors.onSurface
@@ -279,15 +323,14 @@ private fun VisitorCard(
 
                 Text(
                     text = location,
-                    fontSize = 10.sp,
-                    color = colors.onSurfaceVariant
+                    color = colors.onSurfaceVariant,
+                    fontSize = 10.sp
                 )
             }
 
             StatusChip(
-                text = status,
-                color = statusColor,
-                background = statusBackground
+                text = "● $status",
+                status = chipStatus
             )
         }
 
@@ -301,12 +344,12 @@ private fun VisitorCard(
             ) {
                 Text(
                     text = message,
-                    fontSize = 10.sp,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 8.dp)
+                    fontSize = 10.sp,
+                    modifier = Modifier.weight(1f)
                 )
+
+                Spacer(Modifier.width(8.dp))
 
                 Button(
                     onClick = onReserveClick,
@@ -314,30 +357,22 @@ private fun VisitorCard(
                     contentPadding = PaddingValues(
                         horizontal = 14.dp,
                         vertical = 4.dp
-                    ),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colors.primary,
-                        contentColor = colors.onPrimary
                     )
                 ) {
-                    Text(
-                        text = "Reservar",
-                        fontSize = 10.sp
-                    )
+                    Text("Reservar", fontSize = 10.sp)
                 }
             }
         } else {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = colors.surfaceVariant,
-                contentColor = colors.onSurfaceVariant,
+                color = colors.surfaceContainer,
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
                     text = message,
                     modifier = Modifier.padding(10.dp),
-                    fontSize = 10.sp,
-                    color = colors.onSurfaceVariant
+                    color = colors.onSurfaceVariant,
+                    fontSize = 10.sp
                 )
             }
         }
@@ -358,13 +393,10 @@ private fun ReservationSummaryCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 8.dp)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = name,
+                    color = colors.onSurface,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = colors.onSurface
@@ -372,28 +404,23 @@ private fun ReservationSummaryCard(
 
                 Text(
                     text = "Parqueo $parking",
-                    fontSize = 9.sp,
-                    color = colors.onSurfaceVariant
+                    color = colors.onSurfaceVariant,
+                    fontSize = 9.sp
                 )
 
                 Text(
                     text = date,
-                    fontSize = 9.sp,
-                    color = colors.onSurfaceVariant
+                    color = colors.onSurfaceVariant,
+                    fontSize = 9.sp
                 )
             }
 
             StatusChip(
                 text = status,
-                color = if (status == "Activa") {
-                    ParkingAvailable
+                status = if (status == "Activa") {
+                    ChipStatus.SUCCESS
                 } else {
-                    colors.onSecondaryContainer
-                },
-                background = if (status == "Activa") {
-                    ParkingAvailableContainer
-                } else {
-                    colors.secondaryContainer
+                    ChipStatus.NEUTRAL
                 }
             )
         }
@@ -404,12 +431,14 @@ private fun ReservationSummaryCard(
 private fun ParkingCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            containerColor = colors.surface,
+            contentColor = colors.onSurface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
@@ -423,45 +452,17 @@ private fun ParkingCard(
 }
 
 @Composable
-private fun StatusChip(
-    text: String,
-    color: Color,
-    background: Color
-) {
-    Surface(
-        color = background,
-        contentColor = color,
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(
-                horizontal = 9.dp,
-                vertical = 5.dp
-            ),
-            color = color,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@Composable
-private fun SectionTitle(
-    text: String
-) {
+private fun SectionTitle(text: String) {
     Text(
         text = text,
-        color = MaterialTheme.colorScheme.onSurface,
+        color = MaterialTheme.colorScheme.onBackground,
         fontSize = 14.sp,
         fontWeight = FontWeight.SemiBold
     )
 }
 
 @Composable
-private fun SmallLabel(
-    text: String
-) {
+private fun SmallLabel(text: String) {
     Text(
         text = text,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -469,28 +470,18 @@ private fun SmallLabel(
     )
 }
 
-@Preview(
-    name = "Parqueos - Claro",
-    showBackground = true,
-    widthDp = 411,
-    heightDp = 891
-)
+@Preview(name = "Parqueos claro", showBackground = true)
 @Composable
-private fun ParkingScreenLightPreview() {
-    ResidentTheme(darkTheme = false) {
+private fun ParkingLightPreview() {
+    HabitatPlusTheme(darkTheme = false) {
         ParkingScreen()
     }
 }
 
-@Preview(
-    name = "Parqueos - Oscuro",
-    showBackground = true,
-    widthDp = 411,
-    heightDp = 891
-)
+@Preview(name = "Parqueos oscuro", showBackground = true)
 @Composable
-private fun ParkingScreenDarkPreview() {
-    ResidentTheme(darkTheme = true) {
+private fun ParkingDarkPreview() {
+    HabitatPlusTheme(darkTheme = true) {
         ParkingScreen()
     }
 }

@@ -7,9 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +21,7 @@ import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 import com.habitatplus.app.features.parqueos.state.ParkingState
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
-import com.habitatplus.app.ui.theme.*
+import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
 @Composable
 fun HistoryScreen(
@@ -63,9 +61,18 @@ fun HistoryScreen(
                 leadingIcon = {
                     Icon(
                         painter = painterResource(R.drawable.ic_search),
-                        contentDescription = null
+                        contentDescription = "Buscar"
                     )
                 },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = colors.onSurface,
+                    unfocusedTextColor = colors.onSurface,
+                    focusedContainerColor = colors.surface,
+                    unfocusedContainerColor = colors.surface,
+                    focusedBorderColor = colors.primary,
+                    unfocusedBorderColor = colors.outline,
+                    cursorColor = colors.primary
+                ),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
@@ -152,42 +159,40 @@ fun HistoryScreen(
                 color = colors.onBackground
             )
 
-            if (state.error != null) {
+            state.error?.let { error ->
                 Text(
-                    text = state.error,
+                    text = error,
                     color = colors.error,
                     fontSize = 12.sp
                 )
             }
 
-            if (state.filteredHistory.isEmpty()) {
+            val visibleHistory = if (
+                state.historySearch.isBlank() &&
+                (state.historyFilter == "Todos" ||
+                        state.historyFilter.isBlank())
+            ) {
+                state.recentHistory
+            } else {
+                state.filteredHistory
+            }
+
+            if (visibleHistory.isEmpty()) {
                 Text(
                     text = "No hay reservas para mostrar.",
                     color = colors.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             } else {
-                state.filteredHistory.forEach { reservation ->
+                visibleHistory.forEach { reservation ->
                     val isActive = reservation.status == "Activa"
-                    val isCancelled = reservation.status == "Cancelada"
 
                     HistoryDesignCard(
                         name = reservation.visitorName,
-                        plate = "No registrada",
                         parking = reservation.parkingId,
                         date = reservation.date,
                         time = reservation.time,
                         status = reservation.status,
-                        statusColor = when {
-                            isActive -> ParkingAvailable
-                            isCancelled -> colors.onErrorContainer
-                            else -> colors.onSecondaryContainer
-                        },
-                        statusBackground = when {
-                            isActive -> ParkingAvailableContainer
-                            isCancelled -> colors.errorContainer
-                            else -> colors.secondaryContainer
-                        },
                         onCancel = if (isActive) {
                             {
                                 onIntent(
@@ -196,9 +201,7 @@ fun HistoryScreen(
                                     )
                                 )
                             }
-                        } else {
-                            null
-                        }
+                        } else null
                     )
                 }
             }
@@ -211,22 +214,17 @@ fun HistoryScreen(
 @Composable
 private fun FilterChipDesign(
     text: String,
-    selected: Boolean = false,
-    onClick: () -> Unit = {}
+    selected: Boolean,
+    onClick: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
 
     Surface(
-        modifier = Modifier.clickable { onClick() },
+        modifier = Modifier.clickable(onClick = onClick),
         color = if (selected) {
-            colors.primary
+            colors.primaryContainer
         } else {
             colors.surface
-        },
-        contentColor = if (selected) {
-            colors.onPrimary
-        } else {
-            colors.onSurfaceVariant
         },
         shape = RoundedCornerShape(20.dp),
         tonalElevation = if (selected) 0.dp else 1.dp
@@ -238,7 +236,7 @@ private fun FilterChipDesign(
                 vertical = 7.dp
             ),
             color = if (selected) {
-                colors.onPrimary
+                colors.onPrimaryContainer
             } else {
                 colors.onSurfaceVariant
             },
@@ -281,16 +279,16 @@ private fun StatisticItem(
 @Composable
 private fun HistoryDesignCard(
     name: String,
-    plate: String,
     parking: String,
     date: String,
     time: String,
     status: String,
-    statusColor: Color,
-    statusBackground: Color,
-    onCancel: (() -> Unit)? = null
+    onCancel: (() -> Unit)?
 ) {
     val colors = MaterialTheme.colorScheme
+    var showConfirmation by remember {
+        mutableStateOf(false)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -311,28 +309,19 @@ private fun HistoryDesignCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 8.dp)
-                ) {
-                    Text(
-                        text = name,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.onSurface
-                    )
-
-                    Text(
-                        text = plate,
-                        fontSize = 9.sp,
-                        color = colors.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = name,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface
+                )
 
                 Surface(
-                    color = statusBackground,
-                    contentColor = statusColor,
+                    color = if (status == "Activa") {
+                        colors.primaryContainer
+                    } else {
+                        colors.surfaceContainerHigh
+                    },
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Text(
@@ -341,9 +330,12 @@ private fun HistoryDesignCard(
                             horizontal = 9.dp,
                             vertical = 5.dp
                         ),
-                        color = statusColor,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Medium
+                        color = if (status == "Activa") {
+                            colors.onPrimaryContainer
+                        } else {
+                            colors.onSurfaceVariant
+                        },
+                        fontSize = 9.sp
                     )
                 }
             }
@@ -354,62 +346,17 @@ private fun HistoryDesignCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
-                    Text(
-                        text = "PARQUEO",
-                        fontSize = 8.sp,
-                        color = colors.onSurfaceVariant
-                    )
-
-                    Text(
-                        text = parking,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = colors.onSurface
-                    )
-                }
-
-                Column {
-                    Text(
-                        text = "FECHA",
-                        fontSize = 8.sp,
-                        color = colors.onSurfaceVariant
-                    )
-
-                    Text(
-                        text = date,
-                        fontSize = 10.sp,
-                        color = colors.onSurface
-                    )
-                }
-
-                Column(
-                    horizontalAlignment = Alignment.End
-                ) {
-                    Text(
-                        text = "HORARIO",
-                        fontSize = 8.sp,
-                        color = colors.onSurfaceVariant
-                    )
-
-                    Text(
-                        text = time,
-                        fontSize = 10.sp,
-                        color = colors.onSurface
-                    )
-                }
+                HistoryInfo("PARQUEO", parking)
+                HistoryInfo("FECHA", date)
+                HistoryInfo("HORARIO", time)
             }
 
             if (onCancel != null) {
                 HorizontalDivider(color = colors.outlineVariant)
 
-                val showConfirmation = remember {
-                    mutableStateOf(false)
-                }
-
                 OutlinedButton(
                     onClick = {
-                        showConfirmation.value = true
+                        showConfirmation = true
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -418,68 +365,80 @@ private fun HistoryDesignCard(
                 ) {
                     Text("Cancelar reserva")
                 }
-
-                if (showConfirmation.value) {
-                    AlertDialog(
-                        onDismissRequest = {
-                            showConfirmation.value = false
-                        },
-                        title = {
-                            Text("Cancelar reserva")
-                        },
-                        text = {
-                            Text(
-                                "¿Deseas cancelar la reserva del parqueo $parking?"
-                            )
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    showConfirmation.value = false
-                                    onCancel()
-                                }
-                            ) {
-                                Text("Sí, cancelar")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(
-                                onClick = {
-                                    showConfirmation.value = false
-                                }
-                            ) {
-                                Text("Volver")
-                            }
-                        }
-                    )
-                }
             }
         }
     }
+
+    if (showConfirmation && onCancel != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showConfirmation = false
+            },
+            title = {
+                Text("Cancelar reserva")
+            },
+            text = {
+                Text(
+                    "¿Deseas cancelar la reserva del parqueo $parking?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmation = false
+                        onCancel()
+                    }
+                ) {
+                    Text("Sí, cancelar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmation = false
+                    }
+                ) {
+                    Text("Volver")
+                }
+            }
+        )
+    }
 }
 
-@Preview(
-    name = "Historial - Claro",
-    showBackground = true,
-    widthDp = 411,
-    heightDp = 891
-)
 @Composable
-private fun HistoryScreenLightPreview() {
-    ResidentTheme(darkTheme = false) {
+private fun HistoryInfo(
+    label: String,
+    value: String
+) {
+    val colors = MaterialTheme.colorScheme
+
+    Column {
+        Text(
+            text = label,
+            fontSize = 8.sp,
+            color = colors.onSurfaceVariant
+        )
+
+        Text(
+            text = value,
+            fontSize = 10.sp,
+            color = colors.onSurface
+        )
+    }
+}
+
+@Preview(name = "Historial claro", showBackground = true)
+@Composable
+private fun HistoryLightPreview() {
+    HabitatPlusTheme(darkTheme = false) {
         HistoryScreen()
     }
 }
 
-@Preview(
-    name = "Historial - Oscuro",
-    showBackground = true,
-    widthDp = 411,
-    heightDp = 891
-)
+@Preview(name = "Historial oscuro", showBackground = true)
 @Composable
-private fun HistoryScreenDarkPreview() {
-    ResidentTheme(darkTheme = true) {
+private fun HistoryDarkPreview() {
+    HabitatPlusTheme(darkTheme = true) {
         HistoryScreen()
     }
 }

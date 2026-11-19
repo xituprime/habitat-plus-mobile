@@ -62,4 +62,7 @@ sealed interface AppRoute {
 
     @Serializable
     data object Register : AppRoute
+
+    @Serializable
+    data object AdminResidents : AppRoute
 }

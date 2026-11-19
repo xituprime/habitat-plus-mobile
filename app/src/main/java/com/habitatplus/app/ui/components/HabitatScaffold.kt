@@ -21,14 +21,12 @@ fun HabitatScaffold(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
-
         contentWindowInsets = WindowInsets(
             left = 0,
             top = 0,
             right = 0,
             bottom = 0
         ),
-
         topBar = {
             HabitatTopBar(
                 title = title,
@@ -38,7 +36,6 @@ fun HabitatScaffold(
                 unreadCount = unreadCount
             )
         },
-
         bottomBar = {
             HabitatBottomBar(
                 selectedDestination = selectedDestination,
