@@ -2,12 +2,12 @@
 package com.habitatplus.app.features.reportes.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.habitatplus.app.data.local.DatabaseProvider
-import com.habitatplus.app.data.local.ReportEntity
-import com.habitatplus.app.data.repository.ReportRepository
+import com.habitatplus.app.data.repository.CloudReport
+import com.habitatplus.app.data.repository.ReportFirestoreRepository
 import com.habitatplus.app.features.notificaciones.data.NotificationRepository
 import com.habitatplus.app.features.notificaciones.model.NotificationType
 import com.habitatplus.app.features.reportes.intent.ReportIntent
@@ -25,22 +25,16 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 class ReportViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    private val repository = ReportRepository(
-        DatabaseProvider
-            .getDatabase(application)
-            .reportDao()
-    )
+    private val auth = FirebaseAuth.getInstance()
+    private val repository = ReportFirestoreRepository()
 
     private val notificationRepository =
         NotificationRepository(application)
-
-    private val auth = FirebaseAuth.getInstance()
 
     private val _state = MutableStateFlow(
         ReportState(isLoading = true)
@@ -49,8 +43,13 @@ class ReportViewModel(
     val state: StateFlow<ReportState> =
         _state.asStateFlow()
 
-    private var reportsJob: Job? = null
-    private var observedUserId: String? = null
+    private var observerJob: Job? = null
+    private var observedUid: String? = null
+    private var sessionVersion = 0
+
+    // Las fotografías seleccionadas son locales.
+    // No se suben a Firebase Storage.
+    private val localPhotos = mutableMapOf<String, String>()
 
     init {
         loadReports()
@@ -59,9 +58,7 @@ class ReportViewModel(
     fun onIntent(intent: ReportIntent) {
         when (intent) {
 
-            ReportIntent.LoadReports -> {
-                loadReports()
-            }
+            ReportIntent.LoadReports -> loadReports()
 
             is ReportIntent.SearchReports -> {
                 _state.update {
@@ -89,6 +86,14 @@ class ReportViewModel(
                 }
             }
 
+            is ReportIntent.UpdateLocation -> {
+                if (intent.location.length <= 150) {
+                    _state.update {
+                        it.copy(location = intent.location)
+                    }
+                }
+            }
+
             is ReportIntent.SelectReport -> {
                 selectReport(intent.reportId)
             }
@@ -103,9 +108,7 @@ class ReportViewModel(
                 }
             }
 
-            ReportIntent.SubmitReport -> {
-                submitReport()
-            }
+            ReportIntent.SubmitReport -> submitReport()
 
             ReportIntent.ClearReportSubmission -> {
                 _state.update {
@@ -115,19 +118,26 @@ class ReportViewModel(
         }
     }
 
-    private fun loadReports() {
-        val userId = auth.currentUser?.uid
+    fun clearSession() {
+        sessionVersion++
+        observerJob?.cancel()
+        observerJob = null
+        observedUid = null
+        localPhotos.clear()
 
-        if (userId.isNullOrBlank()) {
-            reportsJob?.cancel()
-            reportsJob = null
-            observedUserId = null
+        _state.value = ReportState(
+            isLoading = false
+        )
+    }
+
+    private fun loadReports() {
+        val uid = auth.currentUser?.uid
+
+        if (uid == null) {
+            clearSession()
 
             _state.update {
                 it.copy(
-                    reports = emptyList(),
-                    selectedReportId = null,
-                    isLoading = false,
                     errorMessage =
                         "Debes iniciar sesión para consultar reportes."
                 )
@@ -136,41 +146,31 @@ class ReportViewModel(
         }
 
         if (
-            observedUserId == userId &&
-            reportsJob?.isActive == true
+            observerJob?.isActive == true &&
+            observedUid == uid
         ) {
             return
         }
 
-        reportsJob?.cancel()
-        observedUserId = userId
+        observerJob?.cancel()
+        sessionVersion++
 
-        _state.update {
-            it.copy(
-                reports = emptyList(),
-                selectedReportId = null,
-                isLoading = true,
-                errorMessage = null
-            )
-        }
+        val version = sessionVersion
+        observedUid = uid
+        localPhotos.clear()
 
-        reportsJob = viewModelScope.launch {
+        _state.value = ReportState(isLoading = true)
+
+        observerJob = viewModelScope.launch {
             try {
-                repository.getReportsByUser(userId)
-                    .collect { entities ->
+                repository.observeMyReports()
+                    .collect { cloudReports ->
 
-                        if (auth.currentUser?.uid != userId) {
-                            _state.update {
-                                it.copy(
-                                    reports = emptyList(),
-                                    selectedReportId = null,
-                                    isLoading = false
-                                )
-                            }
+                        if (!sameSession(uid, version)) {
                             return@collect
                         }
 
-                        val reports = entities.map {
+                        val reports = cloudReports.map {
                             it.toReport()
                         }
 
@@ -178,20 +178,30 @@ class ReportViewModel(
                             current.copy(
                                 reports = reports,
                                 isLoading = false,
-                                errorMessage = null
+                                errorMessage = null,
+                                selectedReportId =
+                                    current.selectedReportId?.takeIf { id ->
+                                        reports.any { it.id == id }
+                                    }
                             )
                         }
                     }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(uid, version)) {
+                    Log.e(
+                        "HabitatReports",
+                        "Error al consultar reportes",
+                        e
+                    )
 
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                if (auth.currentUser?.uid == userId) {
                     _state.update {
                         it.copy(
                             isLoading = false,
                             errorMessage =
-                                "No se pudieron cargar los reportes."
+                                "No se pudieron cargar los reportes. " +
+                                "Verifica tu conexión y permisos."
                         )
                     }
                 }
@@ -209,11 +219,8 @@ class ReportViewModel(
                 selectedReportId =
                     if (exists) reportId else null,
                 errorMessage =
-                    if (exists) {
-                        null
-                    } else {
-                        "No se encontró el reporte seleccionado."
-                    }
+                    if (exists) null
+                    else "No se encontró el reporte seleccionado."
             )
         }
     }
@@ -221,13 +228,14 @@ class ReportViewModel(
     private fun submitReport() {
         val current = _state.value
 
-        if (current.isSubmitting || current.isLoading) {
-            return
-        }
+        if (
+            current.isSubmitting ||
+            current.isLoading
+        ) return
 
-        val userId = auth.currentUser?.uid
+        val uid = auth.currentUser?.uid
 
-        if (userId.isNullOrBlank()) {
+        if (uid == null) {
             _state.update {
                 it.copy(
                     errorMessage =
@@ -237,15 +245,46 @@ class ReportViewModel(
             return
         }
 
-        val category = current.selectedCategory ?: return
+        val category = current.selectedCategory
         val description = current.description.trim()
+        val location = current.location.trim()
+
+        if (category == null) {
+            _state.update {
+                it.copy(
+                    errorMessage = "Selecciona una categoría."
+                }
+            }
+            return
+        }
 
         if (
             description.isBlank() ||
             description.length > 500
         ) {
+            _state.update {
+                it.copy(
+                    errorMessage =
+                        "Ingresa una descripción válida."
+                )
+            }
             return
         }
+
+        if (
+            location.isBlank() ||
+            location.length > 150
+        ) {
+            _state.update {
+                it.copy(
+                    errorMessage =
+                        "Ingresa la ubicación del incidente."
+                )
+            }
+            return
+        }
+
+        val version = sessionVersion
 
         _state.update {
             it.copy(
@@ -258,49 +297,67 @@ class ReportViewModel(
         viewModelScope.launch {
             try {
                 val now = Date()
+                val locale = Locale.forLanguageTag("es-GT")
 
                 val date = SimpleDateFormat(
-                    "dd MMM, yyyy",
-                    Locale("es", "GT")
+                    "yyyy-MM-dd",
+                    locale
                 ).format(now)
 
                 val timestamp = SimpleDateFormat(
-                    "dd MMM, yyyy • hh:mm a",
-                    Locale("es", "GT")
+                    "yyyy-MM-dd HH:mm:ss",
+                    locale
                 ).format(now)
 
-                val reportId = "REP-" +
-                        UUID.randomUUID().toString()
-                            .substring(0, 8)
-                            .uppercase(Locale.US)
+                if (!sameSession(uid, version)) {
+                    return@launch
+                }
+
+                val cloudReport = CloudReport(
+                    category = category.name,
+                    description = description,
+                    location = location,
+                    date = date,
+                    lastUpdate = timestamp,
+                    status = ReportStatus.PENDING.name,
+                    hasPhoto = false,
+                    photoUrl = null
+                )
+
+                val reportId = repository.createReport(
+                    cloudReport
+                )
+
+                if (!sameSession(uid, version)) {
+                    return@launch
+                }
+
+                current.selectedPhotoUri?.let {
+                    localPhotos[reportId] = it
+                }
 
                 val newReport = Report(
                     id = reportId,
                     category = category,
                     description = description,
-                    location = "Ubicación no especificada",
+                    location = location,
                     date = date,
                     lastUpdate = timestamp,
                     status = ReportStatus.PENDING,
                     hasPhoto =
-                        !current.selectedPhotoUri.isNullOrBlank(),
+                        current.selectedPhotoUri != null,
                     photoUri = current.selectedPhotoUri
-                )
-
-                if (auth.currentUser?.uid != userId) {
-                    throw IllegalStateException(
-                        "La sesión cambió durante el guardado."
-                    )
-                }
-
-                repository.saveReport(
-                    newReport.toEntity(userId)
                 )
 
                 _state.update {
                     it.copy(
+                        reports = listOf(newReport) +
+                            it.reports.filterNot { existing ->
+                                existing.id == reportId
+                            },
                         selectedCategory = null,
                         description = "",
+                        location = "",
                         hasSelectedPhoto = false,
                         selectedPhotoUri = null,
                         isSubmitting = false,
@@ -311,7 +368,7 @@ class ReportViewModel(
                 }
 
                 try {
-                    if (auth.currentUser?.uid == userId) {
+                    if (sameSession(uid, version)) {
                         val categoryName = when (category) {
                             ReportCategory.LIGHTING ->
                                 "iluminación"
@@ -324,36 +381,43 @@ class ReportViewModel(
                         }
 
                         notificationRepository.createNotification(
-                            userId = userId,
+                            userId = uid,
                             type = NotificationType.REPORT,
                             title = "Reporte registrado",
                             message =
                                 "Tu reporte de $categoryName " +
-                                        "fue registrado correctamente. " +
-                                        "Código: $reportId.",
+                                "fue registrado correctamente. " +
+                                "Código: $reportId.",
                             relatedId = reportId
                         )
                     }
-                } catch (exception: CancellationException) {
-                    throw exception
-                } catch (exception: Exception) {
-                    android.util.Log.w(
-                        "ReportViewModel",
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(
+                        "HabitatReports",
                         "No se pudo guardar la notificación.",
-                        exception
+                        e
                     )
                 }
 
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                if (auth.currentUser?.uid == userId) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(uid, version)) {
+                    Log.e(
+                        "HabitatReports",
+                        "Error al guardar reporte",
+                        e
+                    )
+
                     _state.update {
                         it.copy(
                             isSubmitting = false,
                             reportSubmitted = false,
                             errorMessage =
-                                "No se pudo guardar el reporte."
+                                "No se pudo guardar el reporte. " +
+                                "Revisa la conexión o los permisos de Firebase."
                         )
                     }
                 }
@@ -361,45 +425,37 @@ class ReportViewModel(
         }
     }
 
-    private fun Report.toEntity(
-        userId: String
-    ): ReportEntity {
-        return ReportEntity(
+    private fun CloudReport.toReport(): Report {
+        val localPhoto = localPhotos[id]
+
+        return Report(
             id = id,
-            category = category.name,
+            category = ReportCategory.entries.firstOrNull {
+                it.name == category
+            } ?: ReportCategory.OTHER,
             description = description,
             location = location,
             date = date,
             lastUpdate = lastUpdate,
-            status = status.name,
-            hasPhoto = hasPhoto,
-            photoUri = photoUri,
-            userId = userId
+            status = ReportStatus.entries.firstOrNull {
+                it.name == status
+            } ?: ReportStatus.PENDING,
+            hasPhoto = localPhoto != null,
+            photoUri = localPhoto
         )
     }
 
-    private fun ReportEntity.toReport(): Report {
-        return Report(
-            id = id,
-            category = ReportCategory.entries
-                .firstOrNull {
-                    it.name == category
-                } ?: ReportCategory.OTHER,
-            description = description,
-            location = location,
-            date = date,
-            lastUpdate = lastUpdate,
-            status = ReportStatus.entries
-                .firstOrNull {
-                    it.name == status
-                } ?: ReportStatus.PENDING,
-            hasPhoto = hasPhoto,
-            photoUri = photoUri
-        )
+    private fun sameSession(
+        uid: String,
+        version: Int
+    ): Boolean {
+        return auth.currentUser?.uid == uid &&
+            observedUid == uid &&
+            sessionVersion == version
     }
 
     override fun onCleared() {
-        reportsJob?.cancel()
+        observerJob?.cancel()
         super.onCleared()
     }
 }

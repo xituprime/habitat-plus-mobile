@@ -23,6 +23,10 @@ sealed interface ReportIntent {
         val description: String
     ) : ReportIntent
 
+    data class UpdateLocation(
+        val location: String
+    ) : ReportIntent
+
     data class SelectReport(
         val reportId: String
     ) : ReportIntent

@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.areascomunes.viewmodel
 
 import android.app.Application
@@ -5,9 +6,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.habitatplus.app.data.local.CommonAreaReservationEntity
-import com.habitatplus.app.data.local.DatabaseProvider
-import com.habitatplus.app.data.repository.CommonAreaReservationRepository
+import com.habitatplus.app.data.repository.CloudCommonAreaReservation
+import com.habitatplus.app.data.repository.CommonAreaFirestoreRepository
 import com.habitatplus.app.features.areascomunes.intent.CommonAreaIntent
 import com.habitatplus.app.features.areascomunes.model.CommonArea
 import com.habitatplus.app.features.areascomunes.model.CommonAreaStatus
@@ -17,6 +17,7 @@ import com.habitatplus.app.features.areascomunes.state.CommonAreaState
 import com.habitatplus.app.features.notificaciones.data.NotificationRepository
 import com.habitatplus.app.features.notificaciones.model.NotificationType
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,20 +26,17 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeParseException
-import java.time.temporal.ChronoUnit
 
 class CommonAreaViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
     private val auth = FirebaseAuth.getInstance()
-    private val notificationRepository = NotificationRepository(application)
 
-    private val repository = CommonAreaReservationRepository(
-        DatabaseProvider
-            .getDatabase(application)
-            .commonAreaReservationDao()
-    )
+    private val repository = CommonAreaFirestoreRepository()
+
+    private val notificationRepository =
+        NotificationRepository(application)
 
     private val initialAreas = listOf(
         CommonArea(
@@ -47,10 +45,7 @@ class CommonAreaViewModel(
             description = "Capacidad 50 personas, equipado con mobiliario, cocina auxiliar y climatización.",
             locationType = "Interior",
             availabilityText = "Hasta 50 personas",
-            features = listOf(
-                "Climatizado",
-                "Cocina"
-            ),
+            features = listOf("Climatizado", "Cocina"),
             status = CommonAreaStatus.AVAILABLE
         ),
         CommonArea(
@@ -83,22 +78,26 @@ class CommonAreaViewModel(
             description = "Parrilla techada con mesas exteriores y lavadero.",
             locationType = "Techado",
             availabilityText = "Parrilla & Mesas",
-            features = listOf(
-                "Techado",
-                "Lavadero"
-            ),
+            features = listOf("Techado", "Lavadero"),
             status = CommonAreaStatus.AVAILABLE
         )
     )
-    private val demoReservations = setOf(
-        Triple("court", 0L, "10:00"),
-        Triple("pool", 1L, "12:00"),
-        Triple("social-room", 2L, "18:00"),
-        Triple("grill", 3L, "11:00")
+
+    private val schedules = listOf(
+        "09:00" to "10:00",
+        "10:00" to "11:00",
+        "11:00" to "12:00",
+        "12:00" to "13:00",
+        "18:00" to "19:00"
     )
+
     private var savedReservations:
-            Set<Triple<String, String, String>> = emptySet()
+        List<CloudCommonAreaReservation> = emptyList()
+
     private var reservationsLoaded = false
+    private var observerJob: Job? = null
+    private var observedUid: String? = null
+    private var sessionVersion = 0
 
     private val _state = MutableStateFlow(
         CommonAreaState(
@@ -111,83 +110,153 @@ class CommonAreaViewModel(
         _state.asStateFlow()
 
     init {
-        observeSavedReservations()
+        observeReservations()
     }
 
     fun onIntent(intent: CommonAreaIntent) {
         when (intent) {
-
             CommonAreaIntent.LoadAreas -> {
+                observeReservations()
                 loadAreas()
             }
 
             CommonAreaIntent.LoadAvailability -> {
+                observeReservations()
                 loadAvailability()
             }
 
-            is CommonAreaIntent.SelectArea -> {
+            is CommonAreaIntent.SelectArea ->
                 selectArea(intent.areaId)
-            }
 
-            is CommonAreaIntent.SelectDate -> {
+            is CommonAreaIntent.SelectDate ->
                 selectDate(intent.date)
-            }
 
-            is CommonAreaIntent.SelectTime -> {
+            is CommonAreaIntent.SelectTime ->
                 selectTime(intent.time)
-            }
 
-            CommonAreaIntent.ConfirmReservation -> {
+            CommonAreaIntent.ConfirmReservation ->
                 confirmReservation()
-            }
         }
     }
 
-    private fun observeSavedReservations() {
-        viewModelScope.launch {
+    private fun observeReservations() {
+        val uid = auth.currentUser?.uid
+
+        if (uid == null) {
+            clearSession()
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    errorMessage = "Debes iniciar sesión."
+                )
+            }
+            return
+        }
+
+        if (
+            observerJob?.isActive == true &&
+            observedUid == uid
+        ) return
+
+        observerJob?.cancel()
+        sessionVersion++
+
+        val version = sessionVersion
+        observedUid = uid
+        reservationsLoaded = false
+        savedReservations = emptyList()
+
+        _state.update {
+            it.copy(
+                isLoading = true,
+                timeSlots = emptyList(),
+                selectedTime = null,
+                isReservationConfirmed = false,
+                errorMessage = null
+            )
+        }
+
+        observerJob = viewModelScope.launch {
             try {
-                repository.reservations.collect { reservations ->
+                repository.observeReservations()
+                    .collect { snapshot ->
 
-                    savedReservations = reservations.map {
-                        Triple(
-                            it.areaId,
-                            it.date,
-                            it.startTime
-                        )
-                    }.toSet()
+                        if (!sameSession(uid, version)) {
+                            return@collect
+                        }
 
-                    reservationsLoaded = true
+                        reservationsLoaded =
+                            !snapshot.isFromCache
 
-                    val current = _state.value
+                        savedReservations =
+                            snapshot.reservations
 
-                    val areaId = current.selectedAreaId
-                    val date = parseValidDate(current.selectedDate)
+                        refreshSlots()
+                    }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(uid, version)) {
+                    Log.e(
+                        "HabitatAreas",
+                        "Error al consultar reservas",
+                        e
+                    )
+
+                    reservationsLoaded = false
 
                     _state.update {
                         it.copy(
                             isLoading = false,
-                            timeSlots = if (
-                                areaId != null &&
-                                date != null
-                            ) {
-                                createTimeSlots(areaId, date)
-                            } else {
-                                it.timeSlots
-                            }
+                            selectedTime = null,
+                            timeSlots = emptyList(),
+                            errorMessage =
+                                "No se pudo consultar la disponibilidad en Firestore."
                         )
                     }
                 }
-            } catch (exception: Exception) {
-                reservationsLoaded = false
-
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage =
-                            "No se pudieron cargar las reservas locales."
-                    )
-                }
             }
+        }
+    }
+
+    private fun refreshSlots() {
+        val current = _state.value
+        val areaId = current.selectedAreaId
+        val date = parseValidDate(current.selectedDate)
+
+        val slots = if (
+            reservationsLoaded &&
+            areaId != null &&
+            date != null
+        ) {
+            createTimeSlots(areaId, date)
+        } else {
+            emptyList()
+        }
+
+        val selectedStillAvailable = slots.any {
+            it.startTime == current.selectedTime &&
+                it.status == TimeSlotStatus.AVAILABLE
+        }
+
+        _state.update {
+            it.copy(
+                isLoading = !reservationsLoaded,
+                timeSlots = slots,
+                selectedTime = if (
+                    it.isReservationConfirmed ||
+                    selectedStillAvailable
+                ) {
+                    it.selectedTime
+                } else {
+                    null
+                },
+                errorMessage = if (reservationsLoaded) {
+                    null
+                } else {
+                    "Esperando disponibilidad actualizada del servidor."
+                }
+            )
         }
     }
 
@@ -195,7 +264,7 @@ class CommonAreaViewModel(
         val today = LocalDate.now()
 
         return !date.isBefore(today) &&
-                !date.isAfter(today.plusDays(30))
+            !date.isAfter(today.plusDays(30))
     }
 
     private fun parseValidDate(value: String?): LocalDate? {
@@ -203,7 +272,7 @@ class CommonAreaViewModel(
 
         return try {
             LocalDate.parse(value).takeIf(::isValidDate)
-        } catch (exception: DateTimeParseException) {
+        } catch (_: DateTimeParseException) {
             null
         }
     }
@@ -240,59 +309,39 @@ class CommonAreaViewModel(
     }
 
     private fun loadAvailability() {
-        val current = _state.value
-        val areaId = current.selectedAreaId ?: return
+        val areaId = _state.value.selectedAreaId ?: return
 
-        val date = parseValidDate(current.selectedDate)
-            ?: LocalDate.now()
+        val date = parseValidDate(
+            _state.value.selectedDate
+        ) ?: LocalDate.now()
 
         _state.update {
             it.copy(
-                isLoading = !reservationsLoaded,
                 selectedDate = date.toString(),
                 selectedTime = null,
-                timeSlots = if (reservationsLoaded) {
-                    createTimeSlots(areaId, date)
-                } else {
-                    emptyList()
-                },
                 isReservationConfirmed = false,
                 errorMessage = null
             )
         }
+
+        refreshSlots()
     }
 
     private fun selectDate(date: String) {
-        val current = _state.value
-        val areaId = current.selectedAreaId ?: return
+        if (_state.value.selectedAreaId == null) return
+
         val parsedDate = parseValidDate(date) ?: return
 
         _state.update {
             it.copy(
                 selectedDate = parsedDate.toString(),
                 selectedTime = null,
-                timeSlots = if (reservationsLoaded) {
-                    createTimeSlots(areaId, parsedDate)
-                } else {
-                    emptyList()
-                },
                 isReservationConfirmed = false,
                 errorMessage = null
             )
         }
-    }
 
-    private fun isDemoReserved(
-        areaId: String,
-        date: LocalDate,
-        time: String
-    ): Boolean {
-        val offset = ChronoUnit.DAYS.between(
-            LocalDate.now(),
-            date
-        )
-
-        return Triple(areaId, offset, time) in demoReservations
+        refreshSlots()
     }
 
     private fun isReserved(
@@ -300,35 +349,26 @@ class CommonAreaViewModel(
         date: LocalDate,
         time: String
     ): Boolean {
-        return isDemoReserved(areaId, date, time) ||
-                Triple(
-                    areaId,
-                    date.toString(),
-                    time
-                ) in savedReservations
+        return savedReservations.any {
+            it.areaId == areaId &&
+                it.date == date.toString() &&
+                it.startTime == time &&
+                it.status !=
+                    CommonAreaFirestoreRepository.CANCELLED
+        }
     }
 
     private fun createTimeSlots(
         areaId: String,
         date: LocalDate
     ): List<TimeSlot> {
-
-        val schedules = listOf(
-            "09:00" to "10:00",
-            "10:00" to "11:00",
-            "11:00" to "12:00",
-            "12:00" to "13:00",
-            "18:00" to "19:00"
-        )
-
         return schedules.map { (start, end) ->
-
             val reserved = isReserved(areaId, date, start)
 
-            val pastTime = date == LocalDate.now() &&
-                    !LocalTime.parse(start).isAfter(
-                        LocalTime.now()
-                    )
+            val pastTime =
+                date == LocalDate.now() &&
+                    !LocalTime.parse(start)
+                        .isAfter(LocalTime.now())
 
             val unavailable = reserved || pastTime
 
@@ -371,9 +411,7 @@ class CommonAreaViewModel(
         val date = parseValidDate(current.selectedDate) ?: return
 
         val slot = createTimeSlots(areaId, date)
-            .firstOrNull {
-                it.startTime == time
-            }
+            .firstOrNull { it.startTime == time }
 
         if (slot?.status != TimeSlotStatus.AVAILABLE) {
             return
@@ -403,13 +441,21 @@ class CommonAreaViewModel(
         val time = current.selectedTime ?: return
 
         val slot = createTimeSlots(areaId, date)
-            .firstOrNull {
-                it.startTime == time
-            }
+            .firstOrNull { it.startTime == time }
 
         if (slot?.status != TimeSlotStatus.AVAILABLE) {
+            _state.update {
+                it.copy(
+                    selectedTime = null,
+                    errorMessage =
+                        "Este horario ya no está disponible."
+                )
+            }
             return
         }
+
+        val uid = auth.currentUser?.uid ?: return
+        val version = sessionVersion
 
         _state.update {
             it.copy(
@@ -420,18 +466,28 @@ class CommonAreaViewModel(
 
         viewModelScope.launch {
             try {
-
-                repository.saveReservation(
-                    CommonAreaReservationEntity(
-                        areaId = areaId,
-                        date = date.toString(),
-                        startTime = time,
-                        endTime = slot.endTime
-                    )
+                repository.reserve(
+                    areaId = areaId,
+                    date = date.toString(),
+                    startTime = time,
+                    endTime = slot.endTime
                 )
 
-                savedReservations = savedReservations +
-                        Triple(areaId, date.toString(), time)
+                if (!sameSession(uid, version)) {
+                    return@launch
+                }
+
+                savedReservations =
+                    savedReservations +
+                        CloudCommonAreaReservation(
+                            userId = uid,
+                            areaId = areaId,
+                            date = date.toString(),
+                            startTime = time,
+                            endTime = slot.endTime,
+                            status =
+                                CommonAreaFirestoreRepository.ACTIVE
+                        )
 
                 _state.update {
                     it.copy(
@@ -440,50 +496,81 @@ class CommonAreaViewModel(
                         selectedAreaId = areaId,
                         selectedDate = date.toString(),
                         selectedTime = time,
-                        timeSlots = createTimeSlots(areaId, date),
+                        timeSlots = createTimeSlots(
+                            areaId,
+                            date
+                        ),
                         errorMessage = null
                     )
                 }
 
-                val userId = auth.currentUser?.uid
-                if (!userId.isNullOrBlank()) {
-                    try {
-                        val areaName = initialAreas
-                            .firstOrNull { it.id == areaId }
-                            ?.name ?: "Área común"
+                try {
+                    val areaName = initialAreas
+                        .firstOrNull { it.id == areaId }
+                        ?.name ?: "Área común"
 
-                        if (auth.currentUser?.uid == userId) {
-                            notificationRepository.createNotification(
-                                userId = userId,
-                                type = NotificationType.COMMON_AREA,
-                                title = "Reserva de área común confirmada",
-                                message = "Tu reserva de $areaName para " +
-                                        "${date} de $time a ${slot.endTime} " +
-                                        "fue registrada correctamente.",
-                                relatedId = "$areaId|$date|$time"
-                            )
-                        }
-                    } catch (exception: CancellationException) {
-                        throw exception
-                    } catch (exception: Exception) {
-                        Log.w(
-                            "CommonAreaViewModel",
-                            "No se pudo guardar la notificación.",
-                            exception
+                    notificationRepository.createNotification(
+                        userId = uid,
+                        type = NotificationType.COMMON_AREA,
+                        title = "Reserva de área común confirmada",
+                        message = "Tu reserva de $areaName para " +
+                            "$date de $time a ${slot.endTime} " +
+                            "fue registrada correctamente.",
+                        relatedId = "$areaId|$date|$time"
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(
+                        "CommonAreaViewModel",
+                        "No se pudo guardar la notificación.",
+                        e
+                    )
+                }
+
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(uid, version)) {
+                    Log.e(
+                        "HabitatAreas",
+                        "Error al confirmar reserva",
+                        e
+                    )
+
+                    _state.update {
+                        it.copy(
+                            isSavingReservation = false,
+                            isReservationConfirmed = false,
+                            errorMessage =
+                                "No se pudo confirmar la reserva en Firestore."
                         )
                     }
                 }
-
-            } catch (exception: Exception) {
-                _state.update {
-                    it.copy(
-                        isSavingReservation = false,
-                        isReservationConfirmed = false,
-                        errorMessage =
-                            "No se pudo guardar la reserva localmente."
-                    )
-                }
             }
         }
+    }
+
+    fun clearSession() {
+        sessionVersion++
+        observerJob?.cancel()
+        observerJob = null
+        observedUid = null
+        reservationsLoaded = false
+        savedReservations = emptyList()
+
+        _state.value = CommonAreaState(
+            isLoading = false,
+            areas = initialAreas
+        )
+    }
+
+    private fun sameSession(
+        uid: String,
+        version: Int
+    ): Boolean {
+        return auth.currentUser?.uid == uid &&
+            observedUid == uid &&
+            sessionVersion == version
     }
 }
