@@ -1,9 +1,12 @@
 package com.habitatplus.app.features.areascomunes.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +30,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -228,13 +234,8 @@ fun AreaAvailabilityScreen(
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
 
-                Text(
-                    text = "‹",
-                    modifier = Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 5.dp
-                    ),
-                    fontSize = 15.sp,
+                WeekArrow(
+                    forward = false,
                     color = if (page > 0) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
@@ -279,13 +280,8 @@ fun AreaAvailabilityScreen(
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
 
-                Text(
-                    text = "›",
-                    modifier = Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 5.dp
-                    ),
-                    fontSize = 15.sp,
+                WeekArrow(
+                    forward = true,
                     color = if (page < maxPage) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
@@ -484,6 +480,37 @@ fun AreaAvailabilityScreen(
         Spacer(
             modifier = Modifier.height(16.dp)
         )
+    }
+}
+
+@Composable
+private fun WeekArrow(
+    forward: Boolean,
+    color: Color
+) {
+    Box(
+        modifier = Modifier
+            .size(width = 38.dp, height = 30.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(18.dp)) {
+            val tipX = if (forward) size.width * 0.72f else size.width * 0.28f
+            val baseX = if (forward) size.width * 0.28f else size.width * 0.72f
+            drawLine(
+                color = color,
+                start = Offset(baseX, size.height * 0.2f),
+                end = Offset(tipX, size.height * 0.5f),
+                strokeWidth = 2.5.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            drawLine(
+                color = color,
+                start = Offset(tipX, size.height * 0.5f),
+                end = Offset(baseX, size.height * 0.8f),
+                strokeWidth = 2.5.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        }
     }
 }
 

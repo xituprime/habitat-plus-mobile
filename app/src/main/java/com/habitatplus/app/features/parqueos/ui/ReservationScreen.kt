@@ -29,7 +29,7 @@ import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Calendar
+import java.time.ZoneId
 import java.util.Locale
 
 @Composable
@@ -49,7 +49,7 @@ fun ReservationScreen(
         }
     }
 
-    // CAMARA: vista previa local, no se sube a Firebase.
+    // Fotografia temporal del vehiculo.
     var vehiclePhoto by remember {
         mutableStateOf<Bitmap?>(null)
     }
@@ -62,12 +62,12 @@ fun ReservationScreen(
         }
     }
 
-    // CALENDARIO
+    // Selector de fecha.
     val datePicker = remember(context) {
         DatePickerDialog(
             context,
             { _, year, month, day ->
-                val selected = LocalDate.of(
+                val selectedDate = LocalDate.of(
                     year,
                     month + 1,
                     day
@@ -75,7 +75,7 @@ fun ReservationScreen(
 
                 onIntent(
                     ParkingIntent.DateChanged(
-                        selected.format(
+                        selectedDate.format(
                             DateTimeFormatter.ISO_LOCAL_DATE
                         )
                     )
@@ -85,17 +85,14 @@ fun ReservationScreen(
             LocalDate.now().monthValue - 1,
             LocalDate.now().dayOfMonth
         ).apply {
-            datePicker.minDate =
-                LocalDate.now()
-                    .atStartOfDay(
-                        java.time.ZoneId.systemDefault()
-                    )
-                    .toInstant()
-                    .toEpochMilli()
+            datePicker.minDate = LocalDate.now()
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
         }
     }
 
-    // INTERVALOS DE 30 MINUTOS
+    // Horarios en intervalos exactos de 30 minutos.
     val timeSlots = remember {
         (0 until 48).map { index ->
             val hour = index / 2
@@ -133,7 +130,7 @@ fun ReservationScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
-            // PARQUEO SELECCIONADO
+            // Parqueo seleccionado.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -196,11 +193,11 @@ fun ReservationScreen(
             HabitatField(
                 value = state.reservationForm.apartment,
                 label = "Apartamento",
-                supporting = "Asignado automáticamente",
+                supporting = "Asignado automaticamente",
                 readOnly = true
             )
 
-            FormSectionTitle("Datos del vehículo")
+            FormSectionTitle("Datos del vehiculo")
 
             HabitatField(
                 value = state.reservationForm.licensePlate,
@@ -243,15 +240,16 @@ fun ReservationScreen(
                 }
             }
 
-            // FOTOGRAFIA
-            FormSectionTitle("Fotografía del vehículo")
+            // Camara del vehiculo.
+            FormSectionTitle("Fotografia del vehiculo")
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = colors.surface
-                ),
-                shape = RoundedCornerShape(16.dp)
+                    containerColor = colors.surface,
+                    contentColor = colors.onSurface
+                )
             ) {
                 Column(
                     modifier = Modifier
@@ -264,7 +262,7 @@ fun ReservationScreen(
                         Image(
                             bitmap = vehiclePhoto!!.asImageBitmap(),
                             contentDescription =
-                                "Fotografía del vehículo",
+                                "Fotografia del vehiculo",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(170.dp),
@@ -281,7 +279,7 @@ fun ReservationScreen(
                         )
 
                         Text(
-                            text = "Adjuntar foto del vehículo",
+                            text = "Adjuntar foto del vehiculo",
                             color = colors.onSurface,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
@@ -302,16 +300,16 @@ fun ReservationScreen(
                     ) {
                         Text(
                             text = if (vehiclePhoto == null) {
-                                "Tomar fotografía"
+                                "Tomar fotografia"
                             } else {
-                                "Cambiar fotografía"
+                                "Cambiar fotografia"
                             }
                         )
                     }
                 }
             }
 
-            // FECHA Y HORARIOS
+            // Fecha y horario.
             FormSectionTitle("Fecha y horario")
 
             OutlinedCard(
@@ -438,7 +436,7 @@ fun ReservationScreen(
         }
     }
 
-    // DIALOGO DE HORARIOS
+    // Dialogo de seleccion de horarios.
     if (selectingTime != null) {
         val isEntry = selectingTime == "entry"
 

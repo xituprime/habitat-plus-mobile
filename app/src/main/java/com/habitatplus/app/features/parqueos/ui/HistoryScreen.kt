@@ -1,4 +1,3 @@
-
 package com.habitatplus.app.features.parqueos.ui
 
 import androidx.compose.foundation.clickable
@@ -40,7 +39,6 @@ fun HistoryScreen(
         onBackClick = onBackClick,
         onDestinationClick = onDestinationClick
     ) { innerPadding ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()

@@ -29,14 +29,20 @@ fun ParkingScreen(
     onIntent: (ParkingIntent) -> Unit = {},
     onReservationClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
-    onDestinationClick: (HabitatDestination) -> Unit = {}
+    onDestinationClick: (HabitatDestination) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0
 ) {
+    val colors = MaterialTheme.colorScheme
+
     val colors = MaterialTheme.colorScheme
 
     HabitatScaffold(
         title = "Parqueos",
         selectedDestination = HabitatDestination.PARKING,
-        onDestinationClick = onDestinationClick
+        onDestinationClick = onDestinationClick,
+        onNotificationsClick = onNotificationsClick,
+        unreadCount = unreadCount
     ) { innerPadding ->
 
         Column(
@@ -206,7 +212,7 @@ fun ParkingScreen(
                 ReservationSummaryCard(
                     name = reservation.visitorName,
                     parking = reservation.parkingId,
-                    date = "${reservation.date} • ${reservation.time}",
+                    date = "${reservation.date} · ${reservation.time}",
                     status = reservation.status
                 )
             }
@@ -311,7 +317,8 @@ private fun VisitorCard(
                     text = code,
                     color = colors.onSurface,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface
                 )
 
                 Text(
@@ -391,7 +398,8 @@ private fun ReservationSummaryCard(
                     text = name,
                     color = colors.onSurface,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.onSurface
                 )
 
                 Text(

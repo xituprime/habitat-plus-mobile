@@ -1,6 +1,7 @@
 
 package com.habitatplus.app.features.auth.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,6 +31,8 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit = {},
     onLoginClick: () -> Unit = {}
 ) {
+    
+
     LaunchedEffect(state.isRegistered) {
         if (state.isRegistered) onRegisterSuccess()
     }
@@ -164,7 +167,9 @@ fun RegisterScreen(
                 label = "Contraseña",
                 value = state.password,
                 onValueChange = {
-                    onEvent(RegisterEvent.PasswordChanged(it))
+                    onEvent(
+                        RegisterEvent.PasswordChanged(it)
+                    )
                 },
                 isPassword = true,
                 enabled = !state.isLoading
@@ -174,7 +179,9 @@ fun RegisterScreen(
                 label = "Confirmar contraseña",
                 value = state.confirmPassword,
                 onValueChange = {
-                    onEvent(RegisterEvent.ConfirmPasswordChanged(it))
+                    onEvent(
+                        RegisterEvent.ConfirmPasswordChanged(it)
+                    )
                 },
                 isPassword = true,
                 enabled = !state.isLoading
@@ -229,9 +236,11 @@ fun RegisterScreen(
             }
         }
 
+        // Enlace a Iniciar sesión.
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 "¿Ya tienes una cuenta? ",

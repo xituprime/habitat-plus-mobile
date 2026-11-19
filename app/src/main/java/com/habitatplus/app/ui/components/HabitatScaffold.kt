@@ -14,10 +14,13 @@ fun HabitatScaffold(
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
     onDestinationClick: (HabitatDestination) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0,
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         contentWindowInsets = WindowInsets(
             left = 0,
             top = 0,
@@ -28,7 +31,9 @@ fun HabitatScaffold(
             HabitatTopBar(
                 title = title,
                 showBackButton = showBackButton,
-                onBackClick = onBackClick
+                onBackClick = onBackClick,
+                onNotificationsClick = onNotificationsClick,
+                unreadCount = unreadCount
             )
         },
         bottomBar = {

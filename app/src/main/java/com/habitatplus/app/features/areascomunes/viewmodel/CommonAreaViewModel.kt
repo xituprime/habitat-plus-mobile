@@ -1,8 +1,10 @@
 package com.habitatplus.app.features.areascomunes.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import com.habitatplus.app.data.local.CommonAreaReservationEntity
 import com.habitatplus.app.data.local.DatabaseProvider
 import com.habitatplus.app.data.repository.CommonAreaReservationRepository
@@ -12,6 +14,9 @@ import com.habitatplus.app.features.areascomunes.model.CommonAreaStatus
 import com.habitatplus.app.features.areascomunes.model.TimeSlot
 import com.habitatplus.app.features.areascomunes.model.TimeSlotStatus
 import com.habitatplus.app.features.areascomunes.state.CommonAreaState
+import com.habitatplus.app.features.notificaciones.data.NotificationRepository
+import com.habitatplus.app.features.notificaciones.model.NotificationType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +30,9 @@ import java.time.temporal.ChronoUnit
 class CommonAreaViewModel(
     application: Application
 ) : AndroidViewModel(application) {
+
+    private val auth = FirebaseAuth.getInstance()
+    private val notificationRepository = NotificationRepository(application)
 
     private val repository = CommonAreaReservationRepository(
         DatabaseProvider
@@ -82,22 +90,14 @@ class CommonAreaViewModel(
             status = CommonAreaStatus.AVAILABLE
         )
     )
-
-    // Reservas de demostración.
-    // Siguen siendo datos falsos y no se guardan en Room.
     private val demoReservations = setOf(
         Triple("court", 0L, "10:00"),
         Triple("pool", 1L, "12:00"),
         Triple("social-room", 2L, "18:00"),
         Triple("grill", 3L, "11:00")
     )
-
-    // Copia local de las reservas leídas desde Room.
     private var savedReservations:
             Set<Triple<String, String, String>> = emptySet()
-
-    // No permitimos seleccionar horarios hasta que
-    // Room haya terminado la primera lectura.
     private var reservationsLoaded = false
 
     private val _state = MutableStateFlow(
@@ -420,8 +420,6 @@ class CommonAreaViewModel(
 
         viewModelScope.launch {
             try {
-                // Room tiene un índice único que impide
-                // duplicar área + fecha + horario.
 
                 repository.saveReservation(
                     CommonAreaReservationEntity(
@@ -431,9 +429,6 @@ class CommonAreaViewModel(
                         endTime = slot.endTime
                     )
                 )
-
-                // Solo después de guardar correctamente
-                // confirmamos la reserva en MVI.
 
                 savedReservations = savedReservations +
                         Triple(areaId, date.toString(), time)
@@ -448,6 +443,35 @@ class CommonAreaViewModel(
                         timeSlots = createTimeSlots(areaId, date),
                         errorMessage = null
                     )
+                }
+
+                val userId = auth.currentUser?.uid
+                if (!userId.isNullOrBlank()) {
+                    try {
+                        val areaName = initialAreas
+                            .firstOrNull { it.id == areaId }
+                            ?.name ?: "Área común"
+
+                        if (auth.currentUser?.uid == userId) {
+                            notificationRepository.createNotification(
+                                userId = userId,
+                                type = NotificationType.COMMON_AREA,
+                                title = "Reserva de área común confirmada",
+                                message = "Tu reserva de $areaName para " +
+                                        "${date} de $time a ${slot.endTime} " +
+                                        "fue registrada correctamente.",
+                                relatedId = "$areaId|$date|$time"
+                            )
+                        }
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (exception: Exception) {
+                        Log.w(
+                            "CommonAreaViewModel",
+                            "No se pudo guardar la notificación.",
+                            exception
+                        )
+                    }
                 }
 
             } catch (exception: Exception) {

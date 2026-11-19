@@ -5,7 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.Badge
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,7 +26,9 @@ import com.habitatplus.app.ui.theme.HabitatPlusTheme
 fun HabitatTopBar(
     title: String,
     showBackButton: Boolean = false,
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0
 ) {
     val colors = MaterialTheme.colorScheme
 
@@ -40,10 +47,15 @@ fun HabitatTopBar(
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Flecha de regreso o logo.
             if (showBackButton) {
-                IconButton(onClick = onBackClick) {
+                IconButton(
+                    onClick = onBackClick
+                ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_arrow_back),
+                        painter = painterResource(
+                            R.drawable.ic_arrow_back
+                        ),
                         contentDescription = "Regresar",
                         tint = colors.onSurface
                     )
@@ -69,6 +81,7 @@ fun HabitatTopBar(
                 Spacer(Modifier.width(10.dp))
             }
 
+            // Titulo de la pantalla.
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -89,17 +102,42 @@ fun HabitatTopBar(
                 )
             }
 
-            // Indicador visual. Conectaremos las
-            // notificaciones cuando el modulo este listo.
-            Icon(
-                painter = painterResource(R.drawable.ic_notifications),
-                contentDescription = "Notificaciones",
-                tint = colors.onSurfaceVariant,
-                modifier = Modifier
-                    .padding(10.dp)
-                    .size(21.dp)
-            )
+            // Campanita de notificaciones.
+            Box {
+                IconButton(
+                    onClick = onNotificationsClick
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            R.drawable.ic_notifications
+                        ),
+                        contentDescription = "Notificaciones",
+                        tint = colors.onSurface,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
 
+                // Contador de notificaciones no leidas.
+                if (unreadCount > 0) {
+                    Badge(
+                        modifier = Modifier.align(
+                            Alignment.TopEnd
+                        ),
+                        containerColor = colors.error,
+                        contentColor = colors.onError
+                    ) {
+                        Text(
+                            text = if (unreadCount > 99) {
+                                "99+"
+                            } else {
+                                unreadCount.toString()
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Icono de perfil.
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -110,7 +148,9 @@ fun HabitatTopBar(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_profile),
+                    painter = painterResource(
+                        R.drawable.ic_profile
+                    ),
                     contentDescription = "Perfil",
                     tint = colors.onPrimary,
                     modifier = Modifier.size(18.dp)
@@ -122,22 +162,45 @@ fun HabitatTopBar(
 
 @Preview(
     name = "TopBar claro",
-    showBackground = true
+    showBackground = true,
+    widthDp = 412
 )
 @Composable
 private fun HabitatTopBarLightPreview() {
     HabitatPlusTheme(darkTheme = false) {
-        HabitatTopBar(title = "Parqueos")
+        HabitatTopBar(
+            title = "Inicio",
+            unreadCount = 3
+        )
     }
 }
 
 @Preview(
     name = "TopBar oscuro",
-    showBackground = true
+    showBackground = true,
+    widthDp = 412
 )
 @Composable
 private fun HabitatTopBarDarkPreview() {
     HabitatPlusTheme(darkTheme = true) {
-        HabitatTopBar(title = "Parqueos")
+        HabitatTopBar(
+            title = "Inicio",
+            unreadCount = 3
+        )
+    }
+}
+
+@Preview(
+    name = "TopBar regresar oscuro",
+    showBackground = true,
+    widthDp = 412
+)
+@Composable
+private fun HabitatTopBarBackPreview() {
+    HabitatPlusTheme(darkTheme = true) {
+        HabitatTopBar(
+            title = "Reservar Parqueo",
+            showBackButton = true
+        )
     }
 }

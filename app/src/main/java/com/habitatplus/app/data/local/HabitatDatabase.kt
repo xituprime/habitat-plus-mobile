@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.data.local
 
 import androidx.room.Database
@@ -9,7 +10,7 @@ import androidx.room.RoomDatabase
         ReportEntity::class,
         CommonAreaReservationEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class HabitatDatabase : RoomDatabase() {

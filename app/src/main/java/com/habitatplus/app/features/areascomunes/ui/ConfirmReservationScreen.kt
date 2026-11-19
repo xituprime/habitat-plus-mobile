@@ -1,5 +1,6 @@
 package com.habitatplus.app.features.areascomunes.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -21,6 +23,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -109,15 +113,35 @@ fun ConfirmReservationScreen(
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
 
-                Text(
-                    text = "←",
-                    modifier = Modifier.padding(
-                        horizontal = 10.dp,
-                        vertical = 6.dp
-                    ),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                val arrowColor = MaterialTheme.colorScheme.onSurfaceVariant
+                Canvas(
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(24.dp)
+                ) {
+                    val thickness = 2.5.dp.toPx()
+                    drawLine(
+                        color = arrowColor,
+                        start = Offset(size.width * 0.85f, size.height * 0.5f),
+                        end = Offset(size.width * 0.15f, size.height * 0.5f),
+                        strokeWidth = thickness,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = arrowColor,
+                        start = Offset(size.width * 0.15f, size.height * 0.5f),
+                        end = Offset(size.width * 0.45f, size.height * 0.2f),
+                        strokeWidth = thickness,
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = arrowColor,
+                        start = Offset(size.width * 0.15f, size.height * 0.5f),
+                        end = Offset(size.width * 0.45f, size.height * 0.8f),
+                        strokeWidth = thickness,
+                        cap = StrokeCap.Round
+                    )
+                }
             }
 
             Spacer(

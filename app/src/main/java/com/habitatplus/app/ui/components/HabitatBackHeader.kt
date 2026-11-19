@@ -19,22 +19,30 @@ fun HabitatBackHeader(
     title: String,
     onBackClick: () -> Unit
 ) {
+    val contentColor = MaterialTheme.colorScheme.onSurface
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBackClick) {
+        IconButton(
+            onClick = onBackClick
+        ) {
             Icon(
-                painter = painterResource(R.drawable.ic_arrow_back),
+                painter = painterResource(
+                    R.drawable.ic_arrow_back
+                ),
                 contentDescription = "Regresar",
-                tint = MaterialTheme.colorScheme.onSurface
+                tint = contentColor
             )
         }
 
         Text(
             text = title,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = contentColor,
+            modifier = Modifier.weight(1f)
         )
     }
 }

@@ -44,11 +44,16 @@ sealed interface AppRoute {
         val announcementId: String
     ) : AppRoute
 
+    // F21: Centro de notificaciones
+    @Serializable
+    data object Notifications : AppRoute
+
     @Serializable
     data object Profile : AppRoute
 
     @Serializable
     data object Settings : AppRoute
+
     @Serializable
     data object Splash : AppRoute
 

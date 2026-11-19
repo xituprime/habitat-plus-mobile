@@ -8,6 +8,7 @@ import com.habitatplus.app.core.session.ResidentUser
 import com.habitatplus.app.core.session.UserSessionRepository
 import com.habitatplus.app.features.perfil.intent.ProfileIntent
 import com.habitatplus.app.features.perfil.state.ProfileState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +22,9 @@ class ProfileViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
 
     private val _state = MutableStateFlow(ProfileState())
-    val state: StateFlow<ProfileState> = _state.asStateFlow()
+
+    val state: StateFlow<ProfileState> =
+        _state.asStateFlow()
 
     private var loadedUid: String? = null
     private var requestVersion = 0
@@ -33,21 +36,24 @@ class ProfileViewModel : ViewModel() {
 
     fun onIntent(intent: ProfileIntent) {
         when (intent) {
+
             ProfileIntent.Load -> loadProfile()
 
-            ProfileIntent.ShowResidence ->
+            ProfileIntent.ShowResidence -> {
                 _state.update {
                     it.copy(showResidence = true)
                 }
+            }
 
-            ProfileIntent.DismissResidence ->
+            ProfileIntent.DismissResidence -> {
                 _state.update {
                     it.copy(showResidence = false)
                 }
+            }
 
             ProfileIntent.StartEditing -> startEditing()
 
-            is ProfileIntent.ChangeName ->
+            is ProfileIntent.ChangeName -> {
                 _state.update {
                     if (it.isEditing && !isSaving) {
                         it.copy(
@@ -56,8 +62,9 @@ class ProfileViewModel : ViewModel() {
                         )
                     } else it
                 }
+            }
 
-            is ProfileIntent.ChangePhone ->
+            is ProfileIntent.ChangePhone -> {
                 _state.update {
                     if (it.isEditing && !isSaving) {
                         it.copy(
@@ -66,27 +73,66 @@ class ProfileViewModel : ViewModel() {
                         )
                     } else it
                 }
+            }
+
+            is ProfileIntent.ChangeCondominium -> {
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
+                            draftCondominium = intent.value,
+                            condominiumError = null
+                        )
+                    } else it
+                }
+            }
+
+            is ProfileIntent.ChangeTower -> {
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
+                            draftTower = intent.value,
+                            towerError = null
+                        )
+                    } else it
+                }
+            }
+
+            is ProfileIntent.ChangeApartment -> {
+                _state.update {
+                    if (it.isEditing && !isSaving) {
+                        it.copy(
+                            draftApartment = intent.value,
+                            apartmentError = null
+                        )
+                    } else it
+                }
+            }
 
             ProfileIntent.SaveChanges -> saveChanges()
 
             ProfileIntent.CancelEditing -> {
-                if (!isSaving) cancelEditing()
+                if (!isSaving) {
+                    cancelEditing()
+                }
             }
 
-            ProfileIntent.DismissSuccess ->
+            ProfileIntent.DismissSuccess -> {
                 _state.update {
                     it.copy(successMessage = null)
                 }
+            }
 
-            ProfileIntent.OpenSettings ->
+            ProfileIntent.OpenSettings -> {
                 _state.update {
                     it.copy(settingsRequested = true)
                 }
+            }
 
-            ProfileIntent.SettingsNavigationHandled ->
+            ProfileIntent.SettingsNavigationHandled -> {
                 _state.update {
                     it.copy(settingsRequested = false)
                 }
+            }
         }
     }
 
@@ -102,6 +148,7 @@ class ProfileViewModel : ViewModel() {
 
         if (uid == null) {
             clearSession()
+
             _state.update {
                 it.copy(
                     isLoading = false,
@@ -121,23 +168,22 @@ class ProfileViewModel : ViewModel() {
             try {
                 val user = repository.getCurrentUser()
 
-                if (auth.currentUser?.uid != uid ||
-                    loadedUid != uid ||
-                    requestVersion != request
-                ) return@launch
+                if (!sameSession(uid, request)) {
+                    return@launch
+                }
 
                 showUser(user)
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                if (auth.currentUser?.uid == uid &&
-                    loadedUid == uid &&
-                    requestVersion == request
-                ) {
+                if (sameSession(uid, request)) {
                     _state.update {
                         it.copy(
                             isLoading = false,
                             error = "No se pudo cargar el perfil: " +
-                                    (e.localizedMessage ?: "Error desconocido")
+                                (e.localizedMessage
+                                    ?: "Error desconocido")
                         )
                     }
                 }
@@ -160,22 +206,18 @@ class ProfileViewModel : ViewModel() {
                 isOffline = false,
                 name = displayName,
                 initials = buildInitials(displayName),
-                role = when (user.role) {
+                role = when (user.role.lowercase()) {
                     "admin" -> "Administrador"
                     else -> "Residente"
                 },
                 condominium = "Habitat+",
-                tower = if (approved) {
-                    "Unidad asignada"
-                } else {
-                    "Pendiente de asignación"
-                },
-                apartment = if (approved &&
-                    user.apartment.isNotBlank()
+                tower = "",
+                apartment = if (
+                    approved && user.apartment.isNotBlank()
                 ) {
                     user.apartment
                 } else {
-                    "Sin asignar"
+                    ""
                 },
                 email = user.email,
                 phone = user.phone,
@@ -186,9 +228,11 @@ class ProfileViewModel : ViewModel() {
 
     private fun startEditing() {
         _state.update { current ->
-            if (current.isLoading ||
+            if (
+                current.isLoading ||
                 current.error != null ||
-                current.isEditing
+                current.isEditing ||
+                isSaving
             ) {
                 current
             } else {
@@ -196,8 +240,14 @@ class ProfileViewModel : ViewModel() {
                     isEditing = true,
                     draftName = current.name,
                     draftPhone = current.phone,
+                    draftCondominium = current.condominium,
+                    draftTower = current.tower,
+                    draftApartment = current.apartment,
                     nameError = null,
                     phoneError = null,
+                    condominiumError = null,
+                    towerError = null,
+                    apartmentError = null,
                     successMessage = null,
                     showResidence = false
                 )
@@ -207,6 +257,7 @@ class ProfileViewModel : ViewModel() {
 
     private fun saveChanges() {
         val current = _state.value
+
         if (!current.isEditing || isSaving) return
 
         val uid = auth.currentUser?.uid ?: return
@@ -229,6 +280,25 @@ class ProfileViewModel : ViewModel() {
             return
         }
 
+        val residenceChanged =
+            current.draftCondominium.trim() !=
+                current.condominium ||
+            current.draftTower.trim() != current.tower ||
+            current.draftApartment.trim() !=
+                current.apartment
+
+        if (residenceChanged) {
+            _state.update {
+                it.copy(
+                    apartmentError =
+                        "Los cambios de residencia deben " +
+                        "ser gestionados por la administración.",
+                    successMessage = null
+                )
+            }
+            return
+        }
+
         isSaving = true
         val request = ++requestVersion
 
@@ -236,15 +306,15 @@ class ProfileViewModel : ViewModel() {
             try {
                 repository.updateProfile(name, phone)
 
-                if (auth.currentUser?.uid != uid ||
-                    requestVersion != request
-                ) return@launch
+                if (!sameSession(uid, request)) {
+                    return@launch
+                }
 
                 val updatedUser = repository.getCurrentUser()
 
-                if (auth.currentUser?.uid != uid ||
-                    requestVersion != request
-                ) return@launch
+                if (!sameSession(uid, request)) {
+                    return@launch
+                }
 
                 showUser(updatedUser)
 
@@ -253,29 +323,28 @@ class ProfileViewModel : ViewModel() {
                         isEditing = false,
                         draftName = "",
                         draftPhone = "",
+                        draftCondominium = "",
+                        draftTower = "",
+                        draftApartment = "",
                         nameError = null,
                         phoneError = null,
+                        condominiumError = null,
+                        towerError = null,
+                        apartmentError = null,
                         successMessage =
                             "Los cambios de tu perfil se guardaron."
                     )
                 }
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                if (auth.currentUser?.uid == uid &&
-                    requestVersion == request
-                ) {
-                    _state.update {
-                        it.copy(
-                            phoneError = null,
-                            error = null,
-                            successMessage = null
-                        )
-                    }
-                    // Conservamos el formulario para reintentar.
+                if (sameSession(uid, request)) {
                     _state.update {
                         it.copy(
                             phoneError = "No se pudo guardar: " +
-                                    (e.localizedMessage ?: "Error")
+                                (e.localizedMessage ?: "Error"),
+                            successMessage = null
                         )
                     }
                 }
@@ -293,21 +362,32 @@ class ProfileViewModel : ViewModel() {
                 isEditing = false,
                 draftName = "",
                 draftPhone = "",
+                draftCondominium = "",
+                draftTower = "",
+                draftApartment = "",
                 nameError = null,
-                phoneError = null
+                phoneError = null,
+                condominiumError = null,
+                towerError = null,
+                apartmentError = null
             )
         }
     }
 
     private fun validateName(name: String): String? =
         when {
-            name.isBlank() -> "Ingresa tu nombre."
+            name.isBlank() ->
+                "Ingresa tu nombre."
+
             name.length < 2 ->
                 "El nombre debe tener al menos 2 caracteres."
+
             name.length > 80 ->
                 "El nombre no puede superar 80 caracteres."
+
             name.none { it.isLetter() } ->
                 "El nombre debe contener letras."
+
             else -> null
         }
 
@@ -322,7 +402,9 @@ class ProfileViewModel : ViewModel() {
 
         return if (digits !in 8..15) {
             "El teléfono debe tener entre 8 y 15 dígitos."
-        } else null
+        } else {
+            null
+        }
     }
 
     private fun buildInitials(name: String): String =
@@ -331,4 +413,13 @@ class ProfileViewModel : ViewModel() {
             .take(2)
             .joinToString("") { it.take(1) }
             .uppercase(Locale.getDefault())
+
+    private fun sameSession(
+        uid: String,
+        request: Int
+    ): Boolean {
+        return auth.currentUser?.uid == uid &&
+            loadedUid == uid &&
+            requestVersion == request
+    }
 }
