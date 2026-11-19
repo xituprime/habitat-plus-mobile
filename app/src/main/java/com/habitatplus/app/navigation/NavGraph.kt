@@ -713,7 +713,9 @@ fun NavGraph(
                                 onRefreshReports = { adminViewModel.loadReports() },
                                 onChangeReportStatus = adminViewModel::changeReportStatus,
                                 onRefreshCatalog = { adminViewModel.loadParkingCatalog() },
-                                onAddParking = adminViewModel::addParkingSpace
+                                onAddParking = adminViewModel::addParkingSpace,
+                                onRefreshAreaCatalog = adminViewModel::loadAreaCatalog,
+                                onAddCommonArea = adminViewModel::addCommonArea
                             )
                         } else {
                             Box(

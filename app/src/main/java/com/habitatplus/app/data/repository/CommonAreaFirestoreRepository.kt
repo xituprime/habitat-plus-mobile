@@ -68,7 +68,7 @@ class CommonAreaFirestoreRepository(
 
     suspend fun reserve(areaId: String, date: String, startTime: String, endTime: String): String {
         val uid = requireUid()
-        require(areaId in setOf("social-room", "court", "pool", "grill"))
+        require(Regex("[a-z0-9-]{3,40}").matches(areaId))
         require(Regex("\\d{4}-\\d{2}-\\d{2}").matches(date))
         require((startTime to endTime) in setOf(
             "09:00" to "10:00", "10:00" to "11:00", "11:00" to "12:00",
