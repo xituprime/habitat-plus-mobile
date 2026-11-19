@@ -1,28 +1,44 @@
 
 package com.habitatplus.app.features.parqueos.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.habitatplus.app.core.session.UserSessionRepository
 import com.habitatplus.app.data.repository.CloudParkingReservation
 import com.habitatplus.app.data.repository.ParkingFirestoreRepository
+import com.habitatplus.app.features.notificaciones.data.NotificationRepository
+import com.habitatplus.app.features.notificaciones.model.NotificationType
 import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 import com.habitatplus.app.features.parqueos.model.*
 import com.habitatplus.app.features.parqueos.state.ParkingState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import com.google.firebase.auth.FirebaseAuth
 
-class ParkingViewModel : ViewModel() {
+class ParkingViewModel(
+    application: Application
+) : AndroidViewModel(application) {
 
     private val repository = ParkingFirestoreRepository()
+    private val userRepository = UserSessionRepository()
+
+    private val notificationRepository =
+        NotificationRepository(application)
+
+    private val auth = FirebaseAuth.getInstance()
 
     private val _state = MutableStateFlow(ParkingState())
     val state: StateFlow<ParkingState> = _state.asStateFlow()
 
     private var reservations =
         emptyList<CloudParkingReservation>()
+
+    private var sessionVersion = 0
 
     init {
         loadParkingCatalog()
@@ -31,8 +47,7 @@ class ParkingViewModel : ViewModel() {
 
     fun onIntent(intent: ParkingIntent) {
         when (intent) {
-            ParkingIntent.LoadData ->
-                refreshReservations()
+            ParkingIntent.LoadData -> refreshReservations()
 
             is ParkingIntent.StartReservation ->
                 startReservation(intent.parkingId)
@@ -91,50 +106,93 @@ class ParkingViewModel : ViewModel() {
 
     private fun loadParkingCatalog() {
         _state.value = _state.value.copy(
-            residentParkings = listOf(
-                ParkingSpace(
-                    id = "P-12",
-                    apartment = "A-203",
-                    type = ParkingType.RESIDENT,
-                    status = ParkingStatus.ASSIGNED
-                )
-            ),
+            residentParkings = emptyList(),
             visitorParkings = listOf(
                 "V-01", "V-02", "V-03", "V-04", "V-05"
             ).map { id ->
                 ParkingSpace(
                     id = id,
                     type = ParkingType.VISITOR,
-                    status = if (id == "V-03")
+                    status = if (id == "V-03") {
                         ParkingStatus.MAINTENANCE
-                    else ParkingStatus.AVAILABLE
+                    } else {
+                        ParkingStatus.AVAILABLE
+                    }
                 )
             },
             registeredResidentParkings = 120,
             userRole = UserRole.RESIDENT
         )
-
     }
 
     fun clearSession() {
+        sessionVersion++
         reservations = emptyList()
-
         _state.value = ParkingState()
-
         loadParkingCatalog()
     }
 
-
-
     private fun startReservation(parkingId: String) {
+        val requestedUid = auth.currentUser?.uid
+        val version = sessionVersion
+
+        if (requestedUid == null) {
+            _state.value = _state.value.copy(
+                error = "Debes iniciar sesión.",
+                isLoading = false
+            )
+            return
+        }
+
         _state.value = _state.value.copy(
             reservationForm = ReservationForm(
-                parkingId = parkingId,
-                apartment = "A-203"
+                parkingId = parkingId
             ),
             reservationSuccess = false,
-            error = null
+            error = null,
+            isLoading = true
         )
+
+        viewModelScope.launch {
+            try {
+                val user = userRepository.getCurrentUser()
+
+                if (!sameSession(requestedUid, version)) {
+                    return@launch
+                }
+
+                if (
+                    user.residenceStatus != "approved" ||
+                    user.apartment.isBlank()
+                ) {
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        error = "Tu residencia debe estar aprobada " +
+                            "para realizar reservas."
+                    )
+                    return@launch
+                }
+
+                _state.value = _state.value.copy(
+                    reservationForm = ReservationForm(
+                        parkingId = parkingId,
+                        apartment = user.apartment
+                    ),
+                    reservationSuccess = false,
+                    isLoading = false,
+                    error = null
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(requestedUid, version)) {
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        error = "No se pudo cargar tu vivienda."
+                    )
+                }
+            }
+        }
     }
 
     private fun updateForm(
@@ -169,45 +227,52 @@ class ParkingViewModel : ViewModel() {
     }
 
     private fun submitReservation() {
-        val state = _state.value
+        val current = _state.value
 
-        if (state.isSavingReservation ||
-            state.reservationSuccess
+        if (
+            current.isSavingReservation ||
+            current.reservationSuccess
         ) return
 
-        val form = state.reservationForm
+        val form = current.reservationForm
 
-        val visitorError =
-            if (form.visitorName.isBlank())
-                "Ingresa el nombre del visitante."
-            else null
+        if (current.isLoading || form.apartment.isBlank()) {
+            _state.value = current.copy(
+                error = "Espera a que se verifique tu residencia."
+            )
+            return
+        }
 
-        val plateError =
-            if (form.licensePlate.isBlank())
-                "Ingresa la placa."
-            else null
+        val visitorError = if (form.visitorName.isBlank()) {
+            "Ingresa el nombre del visitante."
+        } else null
 
-        val dateError =
-            if (form.date.isBlank())
-                "Ingresa una fecha."
-            else null
+        val plateError = if (form.licensePlate.isBlank()) {
+            "Ingresa la placa."
+        } else null
 
-        val entryError =
-            if (form.entryTime.isBlank())
-                "Ingresa la hora de ingreso."
-            else null
+        val dateError = if (form.date.isBlank()) {
+            "Selecciona una fecha."
+        } else null
 
-        val exitError =
-            if (form.exitTime.isBlank())
-                "Ingresa la hora de salida."
-            else null
+        val entryError = if (form.entryTime.isBlank()) {
+            "Selecciona la hora de ingreso."
+        } else null
 
-        if (listOf(
-                visitorError, plateError, dateError,
-                entryError, exitError
+        val exitError = if (form.exitTime.isBlank()) {
+            "Selecciona la hora de salida."
+        } else null
+
+        if (
+            listOf(
+                visitorError,
+                plateError,
+                dateError,
+                entryError,
+                exitError
             ).any { it != null }
         ) {
-            _state.value = state.copy(
+            _state.value = current.copy(
                 reservationForm = form.copy(
                     visitorNameError = visitorError,
                     licensePlateError = plateError,
@@ -219,25 +284,41 @@ class ParkingViewModel : ViewModel() {
             return
         }
 
-        val parking = state.visitorParkings
+        val parking = current.visitorParkings
             .firstOrNull { it.id == form.parkingId }
 
-        if (parking == null ||
+        if (
+            parking == null ||
             parking.status == ParkingStatus.MAINTENANCE
         ) {
-            _state.value = state.copy(
+            _state.value = current.copy(
                 error = "Parqueo no disponible."
             )
             return
         }
 
-        _state.value = state.copy(
+        val requestedUid = auth.currentUser?.uid
+
+        if (requestedUid == null) {
+            _state.value = current.copy(
+                error = "Debes iniciar sesión."
+            )
+            return
+        }
+
+        val version = sessionVersion
+
+        _state.value = current.copy(
             isSavingReservation = true,
             error = null
         )
 
         viewModelScope.launch {
             try {
+                if (!sameSession(requestedUid, version)) {
+                    return@launch
+                }
+
                 repository.createReservation(
                     CloudParkingReservation(
                         parkingId = form.parkingId,
@@ -252,6 +333,10 @@ class ParkingViewModel : ViewModel() {
                     )
                 )
 
+                if (!sameSession(requestedUid, version)) {
+                    return@launch
+                }
+
                 _state.value = _state.value.copy(
                     isSavingReservation = false,
                     reservationSuccess = true,
@@ -260,13 +345,38 @@ class ParkingViewModel : ViewModel() {
 
                 refreshReservations()
 
+                try {
+                    if (sameSession(requestedUid, version)) {
+                        notificationRepository.createNotification(
+                            userId = requestedUid,
+                            type = NotificationType.PARKING,
+                            title = "Reserva de parqueo confirmada",
+                            message = "Parqueo ${form.parkingId}, " +
+                                "fecha ${form.date}, " +
+                                "de ${form.entryTime} a ${form.exitTime}.",
+                            relatedId = null
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(
+                        "ParkingViewModel",
+                        "No se pudo guardar la notificación.",
+                        e
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    isSavingReservation = false,
-                    reservationSuccess = false,
-                    error = e.message
-                        ?: "No se pudo guardar la reserva."
-                )
+                if (sameSession(requestedUid, version)) {
+                    _state.value = _state.value.copy(
+                        isSavingReservation = false,
+                        reservationSuccess = false,
+                        error = e.message
+                            ?: "No se pudo guardar la reserva."
+                    )
+                }
             }
         }
     }
@@ -279,36 +389,45 @@ class ParkingViewModel : ViewModel() {
             return
         }
 
+        val requestedUid = auth.currentUser?.uid ?: return
+        val version = sessionVersion
+
         viewModelScope.launch {
             try {
                 repository.cancelReservation(reservationId)
+
+                if (!sameSession(requestedUid, version)) {
+                    return@launch
+                }
+
                 _state.value = _state.value.copy(error = null)
                 refreshReservations()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    error = e.message
-                        ?: "No se pudo cancelar la reserva."
-                )
+                if (sameSession(requestedUid, version)) {
+                    _state.value = _state.value.copy(
+                        error = e.message
+                            ?: "No se pudo cancelar la reserva."
+                    )
+                }
             }
         }
     }
 
-
     private fun refreshReservations() {
-        val requestedUid = FirebaseAuth.getInstance()
-            .currentUser?.uid ?: run {
+        val requestedUid = auth.currentUser?.uid ?: run {
             clearSession()
             return
         }
+
+        val version = sessionVersion
 
         viewModelScope.launch {
             try {
                 val loaded = repository.getMyReservations()
 
-                val currentUid = FirebaseAuth.getInstance()
-                    .currentUser?.uid
-
-                if (currentUid != requestedUid) {
+                if (!sameSession(requestedUid, version)) {
                     return@launch
                 }
 
@@ -332,11 +451,10 @@ class ParkingViewModel : ViewModel() {
 
                 filterHistory()
                 updateStatistics()
-
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                if (FirebaseAuth.getInstance()
-                        .currentUser?.uid == requestedUid
-                ) {
+                if (sameSession(requestedUid, version)) {
                     _state.value = _state.value.copy(
                         error = e.message
                             ?: "No se pudo cargar el historial."
@@ -346,25 +464,21 @@ class ParkingViewModel : ViewModel() {
         }
     }
 
-
     private fun filterHistory() {
         val current = _state.value
+        val search = current.historySearch.trim()
 
-        val filtered = current.recentHistory.filter {
-            val search = current.historySearch
-
+        val filtered = current.recentHistory.filter { reservation ->
             val matchesSearch =
                 search.isBlank() ||
-                        it.visitorName.contains(search, true) ||
-                        it.parkingId.contains(search, true) ||
-                        it.date.contains(search, true)
+                reservation.visitorName.contains(search, true) ||
+                reservation.parkingId.contains(search, true) ||
+                reservation.date.contains(search, true)
 
-            val matchesFilter = when (
-                current.historyFilter
-            ) {
-                "Activas" -> it.status == "Activa"
-                "Canceladas" -> it.status == "Cancelada"
-                "Finalizadas" -> it.status == "Finalizada"
+            val matchesFilter = when (current.historyFilter) {
+                "Activas" -> reservation.status == "Activa"
+                "Canceladas" -> reservation.status == "Cancelada"
+                "Finalizadas" -> reservation.status == "Finalizada"
                 else -> true
             }
 
@@ -393,5 +507,13 @@ class ParkingViewModel : ViewModel() {
                 .size,
             mostUsedParking = mostUsed
         )
+    }
+
+    private fun sameSession(
+        uid: String,
+        version: Int
+    ): Boolean {
+        return auth.currentUser?.uid == uid &&
+            sessionVersion == version
     }
 }

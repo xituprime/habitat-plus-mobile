@@ -1,13 +1,19 @@
 package com.habitatplus.app.ui.theme
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 
 object ResidentColors {
     val Blue = Color(0xFF0B2F78)
@@ -49,6 +55,7 @@ private val ResidentLightScheme = lightColorScheme(
     onSurfaceVariant = ResidentColors.SecondaryText,
 
     outline = Color(0xFFCBD5E1),
+    outlineVariant = Color(0xFFE2E8F0),
 
     error = ResidentColors.Red,
     onError = Color.White,
@@ -76,8 +83,10 @@ private val ResidentDarkScheme = darkColorScheme(
     onSurfaceVariant = Color(0xFFCBD5E1),
 
     outline = Color(0xFF718096),
+    outlineVariant = Color(0xFF405064),
 
     error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
     errorContainer = Color(0xFF6F2020),
     onErrorContainer = Color(0xFFFFDAD6)
 )
@@ -87,6 +96,26 @@ fun ResidentTheme(
     darkTheme: Boolean,
     content: @Composable () -> Unit
 ) {
+    val view = LocalView.current
+
+    // Las previews no tienen una ventana de Activity real.
+    if (!view.isInEditMode) {
+        SideEffect {
+            val activity = view.context.findThemeActivity()
+
+            if (activity != null) {
+                val controller = WindowCompat.getInsetsController(
+                    activity.window,
+                    view
+                )
+
+                // true significa iconos oscuros para un fondo claro.
+                controller.isAppearanceLightStatusBars = !darkTheme
+                controller.isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
+    }
+
     MaterialTheme(
         colorScheme = if (darkTheme) {
             ResidentDarkScheme
@@ -101,4 +130,23 @@ fun ResidentTheme(
         ),
         content = content
     )
+}
+
+private fun Context.findThemeActivity(): Activity? {
+    var current: Context = this
+
+    while (current is ContextWrapper) {
+        if (current is Activity) {
+            return current
+        }
+
+        val next = current.baseContext
+        if (next === current) {
+            return null
+        }
+
+        current = next
+    }
+
+    return current as? Activity
 }

@@ -45,14 +45,18 @@ import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
 
+
 @Composable
 fun ReportsScreen(
     state: ReportState,
     onIntent: (ReportIntent) -> Unit = {},
     onNewReportClick: () -> Unit = {},
     onReportClick: (Report) -> Unit = {},
-    onDestinationClick: (HabitatDestination) -> Unit = {}
+    onDestinationClick: (HabitatDestination) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0
 ) {
+
     val filteredReports = state.reports.filter { report ->
         val category = categoryText(report.category)
 
@@ -74,11 +78,15 @@ fun ReportsScreen(
         matchesSearch && matchesStatus
     }
 
+
     HabitatScaffold(
         title = "Reportes",
         selectedDestination = HabitatDestination.REPORTS,
-        onDestinationClick = onDestinationClick
+        onDestinationClick = onDestinationClick,
+        onNotificationsClick = onNotificationsClick,
+        unreadCount = unreadCount
     ) { innerPadding ->
+
 
         Column(
             modifier = Modifier

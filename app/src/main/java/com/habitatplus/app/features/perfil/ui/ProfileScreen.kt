@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.perfil.ui
 
 import androidx.compose.foundation.Image
@@ -33,7 +34,9 @@ fun ProfileScreen(
     onSettings: () -> Unit,
     onDestinationClick: (HabitatDestination) -> Unit = {},
     modifier: Modifier = Modifier,
-    profileImage: Painter? = null
+    profileImage: Painter? = null,
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0
 ) {
     LaunchedEffect(state.settingsRequested) {
         if (state.settingsRequested) {
@@ -45,16 +48,17 @@ fun ProfileScreen(
     HabitatScaffold(
         title = "Perfil",
         selectedDestination = HabitatDestination.PROFILE,
-        onDestinationClick = onDestinationClick
+        onDestinationClick = onDestinationClick,
+        onNotificationsClick = onNotificationsClick,
+        unreadCount = unreadCount
     ) { innerPadding ->
+
         ResidentPage(
             modifier = modifier
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
         ) {
-            ResidentTitle(
-                text = "Mi perfil"
-            )
+            ResidentTitle(text = "Mi perfil")
 
             if (state.isOffline) {
                 ResidentOfflineNotice()
@@ -119,9 +123,7 @@ fun ProfileScreen(
                                     contentScale = ContentScale.Crop
                                 )
                             } else {
-                                ResidentAvatar(
-                                    initials = state.initials
-                                )
+                                ResidentAvatar(initials = state.initials)
                             }
 
                             Column(
@@ -135,11 +137,22 @@ fun ProfileScreen(
                                 )
 
                                 ResidentBadge(
-                                    text = state.role
+                                    text = when (state.role.lowercase()) {
+                                        "resident" -> "Residente"
+                                        "admin" -> "Administrador"
+                                        else -> state.role
+                                    }
                                 )
 
                                 Text(
-                                    text = "${state.tower} · ${state.apartment}",
+                                    text = if (
+                                        state.verified &&
+                                        state.apartment.isNotBlank()
+                                    ) {
+                                        residenceSummary(state)
+                                    } else {
+                                        "Residencia pendiente de verificación"
+                                    },
                                     style = MaterialTheme.typography.bodyMedium,
                                     color =
                                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -159,7 +172,11 @@ fun ProfileScreen(
 
                     ResidentField(
                         label = "UNIDAD REGISTRADA",
-                        value = state.condominium
+                        value = if (state.verified) {
+                            residenceSummary(state)
+                        } else {
+                            "Pendiente de aprobación"
+                        }
                     )
 
                     ResidentCard {
@@ -178,7 +195,9 @@ fun ProfileScreen(
 
                         ResidentField(
                             label = "Teléfono móvil",
-                            value = state.phone
+                            value = state.phone.ifBlank {
+                                "No registrado"
+                            }
                         )
                     }
 
@@ -191,7 +210,11 @@ fun ProfileScreen(
                     ResidentCard {
                         ResidentOption(
                             title = "Mis datos de residencia",
-                            subtitle = "Apartamento ${state.apartment}",
+                            subtitle = if (state.verified) {
+                                residenceSummary(state)
+                            } else {
+                                "Pendiente de aprobación"
+                            },
                             onClick = {
                                 onIntent(ProfileIntent.ShowResidence)
                             }
@@ -239,6 +262,19 @@ fun ProfileScreen(
     }
 }
 
+private fun residenceSummary(state: ProfileState): String {
+    val parts = listOf(
+        state.tower,
+        state.apartment
+    ).filter { it.isNotBlank() }
+
+    return if (parts.isEmpty()) {
+        "Residencia pendiente de completar"
+    } else {
+        parts.joinToString(" · ")
+    }
+}
+
 @Composable
 private fun ProfileResidenceDialog(
     state: ProfileState,
@@ -258,22 +294,43 @@ private fun ProfileResidenceDialog(
             ) {
                 ResidentField(
                     label = "Condominio",
-                    value = state.condominium
+                    value = state.condominium.ifBlank {
+                        "No registrado"
+                    }
                 )
 
                 ResidentField(
                     label = "Torre",
-                    value = state.tower
+                    value = state.tower.ifBlank {
+                        "No registrada"
+                    }
                 )
 
                 ResidentField(
                     label = "Apartamento",
-                    value = state.apartment
+                    value = if (state.verified) {
+                        state.apartment.ifBlank {
+                            "No registrado"
+                        }
+                    } else {
+                        "Pendiente de aprobación"
+                    }
                 )
 
                 ResidentField(
                     label = "Rol",
-                    value = state.role
+                    value = when (state.role.lowercase()) {
+                        "resident" -> "Residente"
+                        "admin" -> "Administrador"
+                        else -> state.role
+                    }
+                )
+
+                Text(
+                    text = "Los datos de residencia están sujetos " +
+                        "a validación administrativa.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
@@ -292,7 +349,9 @@ private fun ProfileEditDialog(
 ) {
     AlertDialog(
         onDismissRequest = {
-            onIntent(ProfileIntent.CancelEditing)
+            if (!state.isLoading) {
+                onIntent(ProfileIntent.CancelEditing)
+            }
         },
         title = {
             Text("Editar perfil")
@@ -302,70 +361,124 @@ private fun ProfileEditDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Actualiza tu nombre y teléfono de contacto.",
-                    style = MaterialTheme.typography.bodyMedium
+                    text = "Información personal",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
                 )
 
-                OutlinedTextField(
+                ProfileEditableField(
                     value = state.draftName,
+                    label = "Nombre completo",
                     onValueChange = {
-                        onIntent(
-                            ProfileIntent.ChangeName(it)
-                        )
+                        onIntent(ProfileIntent.ChangeName(it))
                     },
+                    error = state.nameError,
+                    enabled = !state.isLoading,
+                    capitalization = KeyboardCapitalization.Words
+                )
+
+                ProfileEditableField(
+                    value = state.draftPhone,
+                    label = "Teléfono",
+                    onValueChange = {
+                        onIntent(ProfileIntent.ChangePhone(it))
+                    },
+                    error = state.phoneError,
+                    enabled = !state.isLoading,
+                    keyboardType = KeyboardType.Phone,
+                    supporting = "Opcional. Incluye código de país si aplica."
+                )
+
+                HorizontalDivider()
+
+                Text(
+                    text = "Datos de residencia",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Los cambios de condominio, torre y apartamento " +
+                        "se enviarán para revisión administrativa.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                ProfileEditableField(
+                    value = state.draftCondominium,
+                    label = "Condominio",
+                    onValueChange = {
+                        onIntent(ProfileIntent.ChangeCondominium(it))
+                    },
+                    error = state.condominiumError,
+                    enabled = !state.isLoading,
+                    capitalization = KeyboardCapitalization.Words
+                )
+
+                ProfileEditableField(
+                    value = state.draftTower,
+                    label = "Torre",
+                    onValueChange = {
+                        onIntent(ProfileIntent.ChangeTower(it))
+                    },
+                    error = state.towerError,
+                    enabled = !state.isLoading,
+                    capitalization = KeyboardCapitalization.Words
+                )
+
+                ProfileEditableField(
+                    value = state.draftApartment,
+                    label = "Apartamento solicitado",
+                    onValueChange = {
+                        onIntent(ProfileIntent.ChangeApartment(it))
+                    },
+                    error = state.apartmentError,
+                    enabled = !state.isLoading,
+                    capitalization = KeyboardCapitalization.Characters
+                )
+
+                HorizontalDivider()
+
+                OutlinedTextField(
+                    value = state.email,
+                    onValueChange = {},
                     modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("Nombre")
-                    },
+                    label = { Text("Correo electrónico") },
+                    readOnly = true,
                     singleLine = true,
-                    shape = MaterialTheme.shapes.small,
-                    textStyle = MaterialTheme.typography.bodyLarge,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Words
-                    ),
-                    isError = state.nameError != null,
-                    supportingText = {
-                        state.nameError?.let { message ->
-                            Text(message)
-                        }
-                    }
+                    enabled = false
                 )
 
                 OutlinedTextField(
-                    value = state.draftPhone,
-                    onValueChange = {
-                        onIntent(
-                            ProfileIntent.ChangePhone(it)
-                        )
+                    value = when (state.role.lowercase()) {
+                        "resident" -> "Residente"
+                        "admin" -> "Administrador"
+                        else -> state.role
                     },
+                    onValueChange = {},
                     modifier = Modifier.fillMaxWidth(),
-                    label = {
-                        Text("Teléfono")
-                    },
+                    label = { Text("Rol") },
+                    readOnly = true,
                     singleLine = true,
-                    shape = MaterialTheme.shapes.small,
-                    textStyle = MaterialTheme.typography.bodyLarge,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Phone
-                    ),
-                    isError = state.phoneError != null,
-                    supportingText = {
-                        Text(
-                            text = state.phoneError
-                                ?: "Opcional. Puedes incluir el código de país."
-                        )
-                    }
+                    enabled = false
                 )
+
+                if (state.isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     onIntent(ProfileIntent.SaveChanges)
-                }
+                },
+                enabled = !state.isLoading
             ) {
                 Text("Guardar")
             }
@@ -374,39 +487,93 @@ private fun ProfileEditDialog(
             TextButton(
                 onClick = {
                     onIntent(ProfileIntent.CancelEditing)
-                }
+                },
+                enabled = !state.isLoading
             ) {
                 Text("Cancelar")
             }
+        )
+    )
+}
+
+@Composable
+private fun ProfileEditableField(
+    value: String,
+    label: String,
+    onValueChange: (String) -> Unit,
+    error: String?,
+    enabled: Boolean,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    capitalization: KeyboardCapitalization =
+        KeyboardCapitalization.None,
+    supporting: String? = null
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
+        enabled = enabled,
+        singleLine = true,
+        shape = MaterialTheme.shapes.small,
+        textStyle = MaterialTheme.typography.bodyLarge,
+        keyboardOptions = KeyboardOptions(
+            capitalization = capitalization,
+            keyboardType = keyboardType
+        ),
+        isError = error != null,
+        supportingText = if (error != null || supporting != null) {
+            {
+                Text(error ?: supporting.orEmpty())
+            }
+        } else {
+            null
         }
     )
 }
 
-@Preview(
-    name = "Perfil",
-    showBackground = true,
-    widthDp = 412,
-    heightDp = 1000
-)
+@Preview(name = "Perfil claro", showBackground = true)
 @Composable
-private fun ProfileScreenPreview() {
+private fun ProfileLightPreview() {
     ResidentTheme(darkTheme = false) {
         ProfileScreen(
             state = ProfileState(
                 isLoading = false,
-                name = "Kenett Ortega",
-                initials = "KO",
-                role = "Residente",
-                condominium = "Condominio Las Acacias",
+                name = "Usuario de ejemplo",
+                initials = "UE",
+                role = "resident",
+                condominium = "Condominio de prueba",
                 tower = "Torre A",
                 apartment = "A-203",
-                email = "kenett@example.com",
-                phone = "+502 5555-0100",
+                email = "prueba@example.com",
+                phone = "5555-0100",
                 verified = true
             ),
             onIntent = {},
-            onSettings = {},
-            onDestinationClick = {}
+            onSettings = {}
+        )
+    }
+}
+
+@Preview(name = "Perfil oscuro", showBackground = true)
+@Composable
+private fun ProfileDarkPreview() {
+    ResidentTheme(darkTheme = true) {
+        ProfileScreen(
+            state = ProfileState(
+                isLoading = false,
+                name = "Usuario de ejemplo",
+                initials = "UE",
+                role = "resident",
+                condominium = "Condominio de prueba",
+                tower = "Torre B",
+                apartment = "B-204",
+                email = "prueba@example.com",
+                phone = "5555-0100",
+                verified = true
+            ),
+            onIntent = {},
+            onSettings = {}
         )
     }
 }

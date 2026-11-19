@@ -1,27 +1,36 @@
+
 package com.habitatplus.app.features.parqueos.ui
 
-import androidx.compose.foundation.background
+import android.app.DatePickerDialog
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.habitatplus.app.R
+import com.habitatplus.app.features.parqueos.intent.ParkingIntent
+import com.habitatplus.app.features.parqueos.state.ParkingState
 import com.habitatplus.app.ui.components.HabitatDestination
 import com.habitatplus.app.ui.components.HabitatScaffold
-import com.habitatplus.app.ui.theme.*
-import com.habitatplus.app.features.parqueos.state.ParkingState
-import com.habitatplus.app.features.parqueos.intent.ParkingIntent
-import androidx.compose.runtime.LaunchedEffect
+import com.habitatplus.app.ui.theme.HabitatPlusTheme
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.ZoneId
+import java.util.Locale
 
 @Composable
 fun ReservationScreen(
@@ -31,10 +40,75 @@ fun ReservationScreen(
     onReservationSuccess: () -> Unit = {},
     onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
+    val colors = MaterialTheme.colorScheme
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     LaunchedEffect(state.reservationSuccess) {
         if (state.reservationSuccess) {
             onReservationSuccess()
         }
+    }
+
+    // Fotografia temporal del vehiculo.
+    var vehiclePhoto by remember {
+        mutableStateOf<Bitmap?>(null)
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            vehiclePhoto = bitmap
+        }
+    }
+
+    // Selector de fecha.
+    val datePicker = remember(context) {
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val selectedDate = LocalDate.of(
+                    year,
+                    month + 1,
+                    day
+                )
+
+                onIntent(
+                    ParkingIntent.DateChanged(
+                        selectedDate.format(
+                            DateTimeFormatter.ISO_LOCAL_DATE
+                        )
+                    )
+                )
+            },
+            LocalDate.now().year,
+            LocalDate.now().monthValue - 1,
+            LocalDate.now().dayOfMonth
+        ).apply {
+            datePicker.minDate = LocalDate.now()
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+        }
+    }
+
+    // Horarios en intervalos exactos de 30 minutos.
+    val timeSlots = remember {
+        (0 until 48).map { index ->
+            val hour = index / 2
+            val minute = if (index % 2 == 0) 0 else 30
+
+            String.format(
+                Locale.US,
+                "%02d:%02d",
+                hour,
+                minute
+            )
+        }
+    }
+
+    var selectingTime by remember {
+        mutableStateOf<String?>(null)
     }
 
     HabitatScaffold(
@@ -49,18 +123,20 @@ fun ReservationScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
             Spacer(Modifier.height(4.dp))
 
+            // Parqueo seleccionado.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = HabitatLightBlue
+                    containerColor = colors.primaryContainer,
+                    contentColor = colors.onPrimaryContainer
                 )
             ) {
                 Row(
@@ -70,43 +146,37 @@ fun ReservationScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-
                     Column {
                         Text(
                             text = state.reservationForm.parkingId,
-                            color = HabitatBlue,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
 
                         Text(
-                            text = "Nivel Calle",
-                            color = HabitatTextSecondary,
+                            text = "Parqueo para visitantes",
                             fontSize = 10.sp
                         )
                     }
 
                     Surface(
-                        color = ParkingAvailableContainer,
+                        color = colors.secondaryContainer,
                         shape = RoundedCornerShape(20.dp)
                     ) {
                         Text(
-                            text = "● Disponible",
+                            text = "Seleccionado",
                             modifier = Modifier.padding(
                                 horizontal = 10.dp,
                                 vertical = 5.dp
                             ),
-                            color = ParkingAvailable,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.SemiBold
+                            color = colors.onSecondaryContainer,
+                            fontSize = 10.sp
                         )
                     }
                 }
             }
 
-            FormSectionTitle(
-                title = "Datos de la visita"
-            )
+            FormSectionTitle("Datos de la visita")
 
             HabitatField(
                 value = state.reservationForm.visitorName,
@@ -114,20 +184,20 @@ fun ReservationScreen(
                 onValueChange = {
                     onIntent(ParkingIntent.VisitorNameChanged(it))
                 },
-                isError = state.reservationForm.visitorNameError != null,
-                errorMessage = state.reservationForm.visitorNameError
+                isError =
+                    state.reservationForm.visitorNameError != null,
+                errorMessage =
+                    state.reservationForm.visitorNameError
             )
 
             HabitatField(
                 value = state.reservationForm.apartment,
                 label = "Apartamento",
-                supporting = "Asignado automáticamente",
+                supporting = "Asignado automaticamente",
                 readOnly = true
             )
 
-            FormSectionTitle(
-                title = "Datos del vehículo"
-            )
+            FormSectionTitle("Datos del vehiculo")
 
             HabitatField(
                 value = state.reservationForm.licensePlate,
@@ -135,174 +205,298 @@ fun ReservationScreen(
                 onValueChange = {
                     onIntent(ParkingIntent.LicensePlateChanged(it))
                 },
-                isError = state.reservationForm.licensePlateError != null,
-                errorMessage = state.reservationForm.licensePlateError
+                isError =
+                    state.reservationForm.licensePlateError != null,
+                errorMessage =
+                    state.reservationForm.licensePlateError
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
-                Box(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Box(Modifier.weight(1f)) {
                     HabitatField(
                         value = state.reservationForm.vehicleBrand,
                         label = "Marca",
                         onValueChange = {
-                            onIntent(ParkingIntent.VehicleBrandChanged(it))
+                            onIntent(
+                                ParkingIntent.VehicleBrandChanged(it)
+                            )
                         }
                     )
                 }
 
-                Box(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Box(Modifier.weight(1f)) {
                     HabitatField(
                         value = state.reservationForm.vehicleColor,
                         label = "Color",
                         onValueChange = {
-                            onIntent(ParkingIntent.VehicleColorChanged(it))
+                            onIntent(
+                                ParkingIntent.VehicleColorChanged(it)
+                            )
                         }
                     )
                 }
             }
 
-            FormSectionTitle(
-                title = "Fotografía del vehículo"
-            )
+            // Camara del vehiculo.
+            FormSectionTitle("Fotografia del vehiculo")
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = HabitatSurface
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 2.dp
+                    containerColor = colors.surface,
+                    contentColor = colors.onSurface
                 )
             ) {
-
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    if (vehiclePhoto != null) {
+                        Image(
+                            bitmap = vehiclePhoto!!.asImageBitmap(),
+                            contentDescription =
+                                "Fotografia del vehiculo",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(170.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(
+                                R.drawable.ic_camera
+                            ),
+                            contentDescription = null,
+                            tint = colors.primary,
+                            modifier = Modifier.size(30.dp)
+                        )
 
-                    Icon(
-                        painter = painterResource(
-                            R.drawable.ic_camera
-                        ),
-                        contentDescription = null,
-                        tint = HabitatBlue,
-                        modifier = Modifier.size(30.dp)
-                    )
+                        Text(
+                            text = "Adjuntar foto del vehiculo",
+                            color = colors.onSurface,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
 
-                    Text(
-                        text = "Adjuntar foto del vehículo",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Text(
-                        text = "Opcional",
-                        fontSize = 9.sp,
-                        color = HabitatTextSecondary
-                    )
+                        Text(
+                            text = "Opcional",
+                            color = colors.onSurfaceVariant,
+                            fontSize = 10.sp
+                        )
+                    }
 
                     OutlinedButton(
-                        onClick = {},
+                        onClick = {
+                            cameraLauncher.launch(null)
+                        },
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Text(
-                            text = "Tomar fotografía",
-                            fontSize = 10.sp
+                            text = if (vehiclePhoto == null) {
+                                "Tomar fotografia"
+                            } else {
+                                "Cambiar fotografia"
+                            }
                         )
                     }
                 }
             }
 
-            FormSectionTitle(
-                title = "Fecha y horario"
-            )
+            // Fecha y horario.
+            FormSectionTitle("Fecha y horario")
 
-            HabitatField(
-                value = state.reservationForm.date,
-                label = "Fecha",
-                onValueChange = {
-                    onIntent(ParkingIntent.DateChanged(it))
+            OutlinedCard(
+                onClick = {
+                    datePicker.show()
                 },
-                isError = state.reservationForm.dateError != null,
-                errorMessage = state.reservationForm.dateError
-            )
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Fecha de reserva",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceVariant
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        text = state.reservationForm.date.ifBlank {
+                            "Seleccionar fecha"
+                        },
+                        color = colors.onSurface
+                    )
+
+                    state.reservationForm.dateError?.let {
+                        Text(it, color = colors.error)
+                    }
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
-                Box(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    HabitatField(
-                        value = state.reservationForm.entryTime,
-                        label = "Hora ingreso",
-                        onValueChange = {
-                            onIntent(ParkingIntent.EntryTimeChanged(it))
+                Box(Modifier.weight(1f)) {
+                    OutlinedCard(
+                        onClick = {
+                            selectingTime = "entry"
                         },
-                        isError = state.reservationForm.entryTimeError != null,
-                        errorMessage = state.reservationForm.entryTimeError
-                    )
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                "Hora ingreso",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+
+                            Spacer(Modifier.height(4.dp))
+
+                            Text(
+                                state.reservationForm.entryTime.ifBlank {
+                                    "Seleccionar"
+                                }
+                            )
+                        }
+                    }
                 }
 
-                Box(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    HabitatField(
-                        value = state.reservationForm.exitTime,
-                        label = "Hora salida",
-                        onValueChange = {
-                            onIntent(ParkingIntent.ExitTimeChanged(it))
+                Box(Modifier.weight(1f)) {
+                    OutlinedCard(
+                        onClick = {
+                            selectingTime = "exit"
                         },
-                        isError = state.reservationForm.exitTimeError != null,
-                        errorMessage = state.reservationForm.exitTimeError
-                    )
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                "Hora salida",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+
+                            Spacer(Modifier.height(4.dp))
+
+                            Text(
+                                state.reservationForm.exitTime.ifBlank {
+                                    "Seleccionar"
+                                }
+                            )
+                        }
+                    }
                 }
             }
-            if (state.reservationSuccess) {
+
+            state.reservationForm.entryTimeError?.let {
+                Text(it, color = colors.error)
+            }
+
+            state.reservationForm.exitTimeError?.let {
+                Text(it, color = colors.error)
+            }
+
+            state.error?.let {
                 Text(
-                    text = "¡Reserva realizada correctamente!",
-                    color = ParkingAvailable,
-                    fontWeight = FontWeight.SemiBold
+                    text = it,
+                    color = colors.error
                 )
             }
+
             Button(
                 onClick = {
                     onIntent(ParkingIntent.SubmitReservation)
                 },
+                enabled = !state.isSavingReservation,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = HabitatBlue
-                ),
-                enabled = !state.isSavingReservation
+                shape = RoundedCornerShape(14.dp)
             ) {
-                Text(
-                    text = "Confirmar Reserva de Parqueo",
-                    fontWeight = FontWeight.SemiBold
-                )
+                if (state.isSavingReservation) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = colors.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        "Confirmar reserva de parqueo",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
         }
     }
-}
 
+    // Dialogo de seleccion de horarios.
+    if (selectingTime != null) {
+        val isEntry = selectingTime == "entry"
+
+        AlertDialog(
+            onDismissRequest = {
+                selectingTime = null
+            },
+            title = {
+                Text(
+                    if (isEntry) {
+                        "Seleccionar hora de ingreso"
+                    } else {
+                        "Seleccionar hora de salida"
+                    }
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 350.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    timeSlots.forEach { time ->
+                        TextButton(
+                            onClick = {
+                                if (isEntry) {
+                                    onIntent(
+                                        ParkingIntent.EntryTimeChanged(
+                                            time
+                                        )
+                                    )
+                                } else {
+                                    onIntent(
+                                        ParkingIntent.ExitTimeChanged(
+                                            time
+                                        )
+                                    )
+                                }
+
+                                selectingTime = null
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(time)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectingTime = null
+                    }
+                ) {
+                    Text("Cerrar")
+                }
+            }
+        )
+    }
+}
 
 @Composable
 private fun HabitatField(
@@ -314,6 +508,8 @@ private fun HabitatField(
     isError: Boolean = false,
     errorMessage: String? = null
 ) {
+    val colors = MaterialTheme.colorScheme
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -331,34 +527,42 @@ private fun HabitatField(
         readOnly = readOnly,
         isError = isError,
         singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = colors.onSurface,
+            unfocusedTextColor = colors.onSurface,
+            focusedContainerColor = colors.surface,
+            unfocusedContainerColor = colors.surface,
+            focusedBorderColor = colors.primary,
+            unfocusedBorderColor = colors.outline,
+            cursorColor = colors.primary
+        ),
         shape = RoundedCornerShape(12.dp)
     )
 }
 
-
 @Composable
-private fun FormSectionTitle(
-    title: String
-) {
-
+private fun FormSectionTitle(title: String) {
     Text(
         text = title,
-        color = HabitatTextPrimary,
+        color = MaterialTheme.colorScheme.onBackground,
         fontSize = 14.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(top = 4.dp)
     )
 }
 
-@Preview(
-    name = "02 - Reservar Parqueo",
-    showBackground = true,
-    showSystemUi = true,
-    device = "spec:width=411dp,height=891dp,dpi=420"
-)
+@Preview(name = "Reserva clara", showBackground = true)
 @Composable
-private fun ReservationScreenPreview() {
-    HabitatPlusTheme {
+private fun ReservationLightPreview() {
+    HabitatPlusTheme(darkTheme = false) {
+        ReservationScreen()
+    }
+}
+
+@Preview(name = "Reserva oscura", showBackground = true)
+@Composable
+private fun ReservationDarkPreview() {
+    HabitatPlusTheme(darkTheme = true) {
         ReservationScreen()
     }
 }

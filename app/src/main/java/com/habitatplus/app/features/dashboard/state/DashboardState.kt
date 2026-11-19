@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.features.dashboard.state
 
 import com.habitatplus.app.features.dashboard.model.DashboardAnnouncement
@@ -22,8 +23,5 @@ data class DashboardState(
     val reports: List<DashboardReport> = emptyList(),
     val maintenance: DashboardMaintenance? = null,
     val lastUpdated: String = "",
-    val pendingNavigation: DashboardNavigation? = null,
-    val isHttpLoading: Boolean = false,
-    val httpResult: String? = null,
-    val httpError: String? = null
+    val pendingNavigation: DashboardNavigation? = null
 )

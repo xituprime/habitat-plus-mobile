@@ -1,29 +1,21 @@
+
 package com.habitatplus.app.features.auth.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.habitatplus.app.ui.theme.HabitatBackground
-import com.habitatplus.app.ui.theme.HabitatBlue
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
-import com.habitatplus.app.ui.theme.HabitatTextSecondary
 
 @Composable
 fun SplashScreen(
@@ -39,83 +31,79 @@ fun SplashScreen(
         state.destination?.let(onNavigate)
     }
 
+    val colors = MaterialTheme.colorScheme
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(HabitatBackground),
+            .background(colors.background),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-
         Box(
             modifier = Modifier
                 .size(82.dp)
                 .background(
-                    color = HabitatBlue,
+                    color = colors.primary,
                     shape = RoundedCornerShape(22.dp)
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "H+",
-                color = Color.White,
+                color = colors.onPrimary,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(18.dp)
-        )
+        Spacer(Modifier.height(18.dp))
 
         Text(
             text = "Habitat+",
-            color = HabitatBlue,
+            color = colors.primary,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
+        Spacer(Modifier.height(8.dp))
 
         Text(
             text = "Plataforma inteligente para tu condominio",
-            color = HabitatTextSecondary,
+            color = colors.onSurfaceVariant,
             fontSize = 12.sp
         )
 
-        Spacer(
-            modifier = Modifier.height(34.dp)
-        )
+        Spacer(Modifier.height(34.dp))
 
         CircularProgressIndicator(
             modifier = Modifier.size(28.dp),
-            color = HabitatBlue,
+            color = colors.primary,
             strokeWidth = 3.dp
         )
 
-        Spacer(
-            modifier = Modifier.height(12.dp)
-        )
+        Spacer(Modifier.height(12.dp))
 
         Text(
             text = "Cargando...",
-            color = HabitatTextSecondary,
+            color = colors.onSurfaceVariant,
             fontSize = 11.sp
         )
     }
 }
 
-@Preview(
-    name = "00 - Splash",
-    showBackground = true,
-    showSystemUi = true,
-    device = "spec:width=411dp,height=891dp,dpi=420"
-)
+@Preview(name = "Splash claro", showBackground = true)
 @Composable
-private fun SplashScreenPreview() {
-    HabitatPlusTheme {
+private fun SplashLightPreview() {
+    HabitatPlusTheme(darkTheme = false) {
+        SplashScreen()
+    }
+}
+
+@Preview(name = "Splash oscuro", showBackground = true)
+@Composable
+private fun SplashDarkPreview() {
+    HabitatPlusTheme(darkTheme = true) {
         SplashScreen()
     }
 }

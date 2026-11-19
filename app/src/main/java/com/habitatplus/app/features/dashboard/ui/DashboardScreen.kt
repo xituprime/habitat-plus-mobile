@@ -28,13 +28,14 @@ fun DashboardScreen(
     onReports: () -> Unit,
     onProfile: () -> Unit,
     onDestinationClick: (HabitatDestination) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    unreadCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val navigation = state.pendingNavigation
 
     LaunchedEffect(navigation) {
         if (navigation != null) {
-            // Limpiamos la solicitud para que no se repita al volver.
             onIntent(
                 DashboardIntent.NavigationHandled(navigation)
             )
@@ -76,6 +77,8 @@ fun DashboardScreen(
     HabitatScaffold(
         title = "Inicio",
         selectedDestination = HabitatDestination.HOME,
+        onNotificationsClick = onNotificationsClick,
+        unreadCount = unreadCount,
         onDestinationClick = { destination ->
             onIntent(
                 DashboardIntent.SelectTab(

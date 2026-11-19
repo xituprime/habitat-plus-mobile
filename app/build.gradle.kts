@@ -64,10 +64,12 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
-
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
+    implementation("androidx.datastore:datastore-preferences:1.1.7")
+
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

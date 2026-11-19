@@ -1,16 +1,21 @@
+
 package com.habitatplus.app.features.reportes.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.habitatplus.app.data.repository.CloudReport
 import com.habitatplus.app.data.repository.ReportFirestoreRepository
+import com.habitatplus.app.features.notificaciones.data.NotificationRepository
+import com.habitatplus.app.features.notificaciones.model.NotificationType
 import com.habitatplus.app.features.reportes.intent.ReportIntent
 import com.habitatplus.app.features.reportes.model.Report
 import com.habitatplus.app.features.reportes.model.ReportCategory
 import com.habitatplus.app.features.reportes.model.ReportStatus
 import com.habitatplus.app.features.reportes.state.ReportState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +25,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import android.util.Log
 
 class ReportViewModel(
     application: Application
@@ -28,6 +32,9 @@ class ReportViewModel(
 
     private val auth = FirebaseAuth.getInstance()
     private val repository = ReportFirestoreRepository()
+
+    private val notificationRepository =
+        NotificationRepository(application)
 
     private val _state = MutableStateFlow(
         ReportState(isLoading = true)
@@ -38,9 +45,10 @@ class ReportViewModel(
 
     private var observerJob: Job? = null
     private var observedUid: String? = null
+    private var sessionVersion = 0
 
-    // Las fotografías seleccionadas permanecen locales.
-    // No se envían URI file:// a Firestore.
+    // Las fotografías seleccionadas son locales.
+    // No se suben a Firebase Storage.
     private val localPhotos = mutableMapOf<String, String>()
 
     init {
@@ -110,64 +118,92 @@ class ReportViewModel(
         }
     }
 
+    fun clearSession() {
+        sessionVersion++
+        observerJob?.cancel()
+        observerJob = null
+        observedUid = null
+        localPhotos.clear()
+
+        _state.value = ReportState(
+            isLoading = false
+        )
+    }
+
     private fun loadReports() {
         val uid = auth.currentUser?.uid
 
         if (uid == null) {
-            observerJob?.cancel()
-            observerJob = null
-            observedUid = null
-            localPhotos.clear()
+            clearSession()
 
-            _state.value = ReportState(
-                errorMessage = "Debes iniciar sesión."
-            )
+            _state.update {
+                it.copy(
+                    errorMessage =
+                        "Debes iniciar sesión para consultar reportes."
+                )
+            }
             return
         }
 
-        if (observerJob?.isActive == true &&
+        if (
+            observerJob?.isActive == true &&
             observedUid == uid
         ) {
             return
         }
 
         observerJob?.cancel()
-        localPhotos.clear()
+        sessionVersion++
+
+        val version = sessionVersion
         observedUid = uid
+        localPhotos.clear()
 
         _state.value = ReportState(isLoading = true)
 
         observerJob = viewModelScope.launch {
             try {
-                repository.observeMyReports().collect { cloudReports ->
+                repository.observeMyReports()
+                    .collect { cloudReports ->
 
-                    if (auth.currentUser?.uid != uid) {
-                        return@collect
+                        if (!sameSession(uid, version)) {
+                            return@collect
+                        }
+
+                        val reports = cloudReports.map {
+                            it.toReport()
+                        }
+
+                        _state.update { current ->
+                            current.copy(
+                                reports = reports,
+                                isLoading = false,
+                                errorMessage = null,
+                                selectedReportId =
+                                    current.selectedReportId?.takeIf { id ->
+                                        reports.any { it.id == id }
+                                    }
+                            )
+                        }
                     }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(uid, version)) {
+                    Log.e(
+                        "HabitatReports",
+                        "Error al consultar reportes",
+                        e
+                    )
 
-                    val reports = cloudReports.map {
-                        it.toReport()
-                    }
-
-                    _state.update { current ->
-                        current.copy(
-                            reports = reports,
+                    _state.update {
+                        it.copy(
                             isLoading = false,
-                            errorMessage = null,
-                            selectedReportId =
-                                current.selectedReportId?.takeIf { id ->
-                                    reports.any { it.id == id }
-                                }
+                            errorMessage =
+                                "No se pudieron cargar los reportes. " +
+                                "Verifica tu conexión y permisos."
                         )
                     }
-                }
-            } catch (exception: Exception) {
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage =
-                            "No se pudieron cargar los reportes. Verifica tu conexión y permisos."
-                    )
                 }
             }
         }
@@ -192,14 +228,18 @@ class ReportViewModel(
     private fun submitReport() {
         val current = _state.value
 
-        if (current.isSubmitting || current.isLoading) return
+        if (
+            current.isSubmitting ||
+            current.isLoading
+        ) return
 
         val uid = auth.currentUser?.uid
 
         if (uid == null) {
             _state.update {
                 it.copy(
-                    errorMessage = "Debes iniciar sesión."
+                    errorMessage =
+                        "Debes iniciar sesión para crear un reporte."
                 )
             }
             return
@@ -213,28 +253,38 @@ class ReportViewModel(
             _state.update {
                 it.copy(
                     errorMessage = "Selecciona una categoría."
+                }
+            }
+            return
+        }
+
+        if (
+            description.isBlank() ||
+            description.length > 500
+        ) {
+            _state.update {
+                it.copy(
+                    errorMessage =
+                        "Ingresa una descripción válida."
                 )
             }
             return
         }
 
-        if (description.isBlank() || description.length > 500) {
+        if (
+            location.isBlank() ||
+            location.length > 150
+        ) {
             _state.update {
                 it.copy(
-                    errorMessage = "Ingresa una descripción válida."
+                    errorMessage =
+                        "Ingresa la ubicación del incidente."
                 )
             }
             return
         }
 
-        if (location.isBlank() || location.length > 150) {
-            _state.update {
-                it.copy(
-                    errorMessage = "Ingresa la ubicación del incidente."
-                )
-            }
-            return
-        }
+        val version = sessionVersion
 
         _state.update {
             it.copy(
@@ -249,7 +299,6 @@ class ReportViewModel(
                 val now = Date()
                 val locale = Locale.forLanguageTag("es-GT")
 
-                // Formato ordenable para Firestore.
                 val date = SimpleDateFormat(
                     "yyyy-MM-dd",
                     locale
@@ -260,6 +309,10 @@ class ReportViewModel(
                     locale
                 ).format(now)
 
+                if (!sameSession(uid, version)) {
+                    return@launch
+                }
+
                 val cloudReport = CloudReport(
                     category = category.name,
                     description = description,
@@ -267,8 +320,6 @@ class ReportViewModel(
                     date = date,
                     lastUpdate = timestamp,
                     status = ReportStatus.PENDING.name,
-                    // No afirmar que una foto local
-                    // está disponible en la nube.
                     hasPhoto = false,
                     photoUrl = null
                 )
@@ -277,14 +328,7 @@ class ReportViewModel(
                     cloudReport
                 )
 
-                if (auth.currentUser?.uid != uid) {
-                    _state.update {
-                        it.copy(
-                            isSubmitting = false,
-                            errorMessage =
-                                "La sesión cambió. Vuelve a ingresar."
-                        )
-                    }
+                if (!sameSession(uid, version)) {
                     return@launch
                 }
 
@@ -300,16 +344,17 @@ class ReportViewModel(
                     date = date,
                     lastUpdate = timestamp,
                     status = ReportStatus.PENDING,
-                    hasPhoto = current.selectedPhotoUri != null,
+                    hasPhoto =
+                        current.selectedPhotoUri != null,
                     photoUri = current.selectedPhotoUri
                 )
 
                 _state.update {
                     it.copy(
                         reports = listOf(newReport) +
-                                it.reports.filterNot { existing ->
-                                    existing.id == reportId
-                                },
+                            it.reports.filterNot { existing ->
+                                existing.id == reportId
+                            },
                         selectedCategory = null,
                         description = "",
                         location = "",
@@ -322,21 +367,59 @@ class ReportViewModel(
                     )
                 }
 
-            } catch (exception: Exception) {
+                try {
+                    if (sameSession(uid, version)) {
+                        val categoryName = when (category) {
+                            ReportCategory.LIGHTING ->
+                                "iluminación"
+                            ReportCategory.NOISE ->
+                                "ruido"
+                            ReportCategory.WATER ->
+                                "agua"
+                            else ->
+                                "mantenimiento"
+                        }
 
-                Log.e(
-                    "HabitatReports",
-                    "Error al guardar reporte en Firestore",
-                    exception
-                )
-
-                _state.update {
-                    it.copy(
-                        isSubmitting = false,
-                        reportSubmitted = false,
-                        errorMessage =
-                            "No se pudo guardar el reporte. Revisa la conexión o los permisos de Firebase."
+                        notificationRepository.createNotification(
+                            userId = uid,
+                            type = NotificationType.REPORT,
+                            title = "Reporte registrado",
+                            message =
+                                "Tu reporte de $categoryName " +
+                                "fue registrado correctamente. " +
+                                "Código: $reportId.",
+                            relatedId = reportId
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(
+                        "HabitatReports",
+                        "No se pudo guardar la notificación.",
+                        e
                     )
+                }
+
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (sameSession(uid, version)) {
+                    Log.e(
+                        "HabitatReports",
+                        "Error al guardar reporte",
+                        e
+                    )
+
+                    _state.update {
+                        it.copy(
+                            isSubmitting = false,
+                            reportSubmitted = false,
+                            errorMessage =
+                                "No se pudo guardar el reporte. " +
+                                "Revisa la conexión o los permisos de Firebase."
+                        )
+                    }
                 }
             }
         }
@@ -360,5 +443,19 @@ class ReportViewModel(
             hasPhoto = localPhoto != null,
             photoUri = localPhoto
         )
+    }
+
+    private fun sameSession(
+        uid: String,
+        version: Int
+    ): Boolean {
+        return auth.currentUser?.uid == uid &&
+            observedUid == uid &&
+            sessionVersion == version
+    }
+
+    override fun onCleared() {
+        observerJob?.cancel()
+        super.onCleared()
     }
 }

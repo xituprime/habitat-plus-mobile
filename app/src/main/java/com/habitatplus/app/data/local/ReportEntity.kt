@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.data.local
 
 import androidx.room.Entity
@@ -14,5 +15,6 @@ data class ReportEntity(
     val lastUpdate: String,
     val status: String,
     val hasPhoto: Boolean = false,
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val userId: String = ""
 )
