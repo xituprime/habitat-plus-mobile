@@ -31,7 +31,7 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit = {},
     onLoginClick: () -> Unit = {}
 ) {
-    
+
 
     LaunchedEffect(state.isRegistered) {
         if (state.isRegistered) onRegisterSuccess()
@@ -147,12 +147,13 @@ fun RegisterScreen(
 
         RegisterSectionCard(title = "Ubicación de unidad") {
             RegisterField(
-                label = "Apartamento solicitado",
+                label = "Apartamento solicitado (ej. 206-A)",
                 value = state.apartment,
                 onValueChange = {
                     onEvent(RegisterEvent.ApartmentChanged(it))
                 },
-                enabled = !state.isLoading
+                enabled = !state.isLoading,
+                placeholder = "206-A"
             )
 
             Text(
@@ -303,7 +304,8 @@ private fun RegisterField(
     value: String,
     onValueChange: (String) -> Unit,
     isPassword: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    placeholder: String = ""
 ) {
     val colors = MaterialTheme.colorScheme
 
@@ -322,6 +324,9 @@ private fun RegisterField(
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
             singleLine = true,
+            placeholder = if (placeholder.isNotBlank()) {
+                { Text(placeholder, color = colors.onSurfaceVariant) }
+            } else null,
             visualTransformation = if (isPassword) {
                 PasswordVisualTransformation()
             } else {
