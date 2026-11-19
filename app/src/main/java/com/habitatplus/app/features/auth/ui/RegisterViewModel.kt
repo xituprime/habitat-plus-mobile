@@ -4,6 +4,7 @@ package com.habitatplus.app.features.auth.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -121,9 +122,15 @@ class RegisterViewModel : ViewModel() {
                     "lastName" to current.lastName.trim(),
                     "email" to email,
                     "phone" to current.phone.trim(),
-                    "apartment" to current.apartment.trim(),
+
+                    // La vivienda solicitada no está aprobada.
+                    "requestedApartment" to current.apartment.trim(),
+                    "apartment" to "",
+                    "residenceStatus" to "pending",
+
                     "role" to "resident",
-                    "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                    "photoUrl" to "",
+                    "createdAt" to FieldValue.serverTimestamp()
                 )
 
                 firestore.collection("users")

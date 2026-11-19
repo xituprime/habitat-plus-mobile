@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -61,6 +62,13 @@ import com.habitatplus.app.features.parqueos.viewmodel.ParkingViewModel
 import com.habitatplus.app.features.parqueos.intent.ParkingIntent
 import com.google.firebase.auth.FirebaseAuth
 import com.habitatplus.app.features.parqueos.state.ParkingState
+import com.habitatplus.app.core.session.AdminAuthRepository
+import com.habitatplus.app.features.admin.ui.AdminResidentsScreen
+import com.habitatplus.app.features.admin.viewmodel.AdminResidentsViewModel
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
+
 
 @Composable
 fun NavGraph(
@@ -79,6 +87,66 @@ fun NavGraph(
     val commonAreaViewModel: CommonAreaViewModel = viewModel()
     val parkingViewModel: ParkingViewModel = viewModel()
     val parkingState by parkingViewModel.state.collectAsState()
+    val adminViewModel: AdminResidentsViewModel = viewModel()
+    val adminState by adminViewModel.state.collectAsState()
+
+    val adminAuthRepository = remember {
+        AdminAuthRepository()
+    }
+
+    var isAdmin by remember {
+        mutableStateOf(false)
+    }
+
+    var adminCheckCompleted by remember {
+        mutableStateOf(false)
+    }
+
+
+    val firebaseAuth = remember {
+        FirebaseAuth.getInstance()
+    }
+
+    var currentUid by remember {
+        mutableStateOf(firebaseAuth.currentUser?.uid)
+    }
+
+    DisposableEffect(firebaseAuth) {
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            currentUid = auth.currentUser?.uid
+        }
+
+        firebaseAuth.addAuthStateListener(listener)
+
+        onDispose {
+            firebaseAuth.removeAuthStateListener(listener)
+        }
+    }
+
+
+
+    LaunchedEffect(currentUid) {
+        val requestedUid = currentUid
+
+        isAdmin = false
+        adminCheckCompleted = false
+
+        if (requestedUid != null) {
+            val result = try {
+                adminAuthRepository.isCurrentUserAdmin()
+            } catch (_: Exception) {
+                false
+            }
+
+            if (firebaseAuth.currentUser?.uid == requestedUid) {
+                isAdmin = result
+                adminCheckCompleted = true
+            }
+        } else {
+            adminCheckCompleted = true
+        }
+    }
+
 
     val clearParkingSession: () -> Unit = {
         parkingViewModel.clearSession()
@@ -324,11 +392,12 @@ fun NavGraph(
                     composable<AppRoute.Parking> {
 
                         LaunchedEffect(Unit) {
-                            parkingViewModel.onIntent(ParkingIntent.LoadData)
+                            profileViewModel.loadProfile()
                         }
 
                         ParkingScreen(
                             state = parkingState,
+                            residentApartment = profileState.apartment,
                             onIntent = parkingViewModel::onIntent,
                             onReservationClick = {
                                 navController.navigate(
@@ -360,6 +429,13 @@ fun NavGraph(
                     }
 
                     composable<AppRoute.ParkingHistory> {
+
+                        LaunchedEffect(Unit) {
+                            parkingViewModel.onIntent(
+                                ParkingIntent.LoadData
+                            )
+                        }
+
                         HistoryScreen(
                             state = parkingState,
                             onBackClick = {
@@ -553,6 +629,10 @@ fun NavGraph(
 
                     composable<AppRoute.Profile>() {
 
+                        LaunchedEffect(Unit) {
+                            profileViewModel.loadProfile()
+                        }
+
                         ProfileScreen(
                             state = profileState,
                             onIntent = profileViewModel::onIntent,
@@ -575,7 +655,30 @@ fun NavGraph(
 
                     composable<AppRoute.Settings>() {
 
+                        LaunchedEffect(Unit) {
+                            profileViewModel.loadProfile()
+                        }
+
+                        LaunchedEffect(Unit) {
+                            FirebaseAuth.getInstance()
+                                .currentUser
+                                ?.getIdToken(true)
+                                ?.addOnSuccessListener { result ->
+                                    android.util.Log.d(
+                                        "HabitatAdmin",
+                                        "Admin claim: ${result.claims["admin"]}"
+                                    )
+                                }
+                        }
+
                         SettingsScreen(
+                            isAdmin = isAdmin && adminCheckCompleted,
+
+                            onAdminClick = {
+                                if (isAdmin && adminCheckCompleted) {
+                                    navController.navigate(AppRoute.AdminResidents)
+                                }
+                            },
                             state = settingsState,
                             userName = profileState.name,
                             userEmail = profileState.email,
@@ -590,7 +693,11 @@ fun NavGraph(
                             onSignOut = {
                                 FirebaseAuth.getInstance().signOut()
 
+                                profileViewModel.clearSession()
                                 clearParkingSession()
+                                adminViewModel.clearSession()
+                                isAdmin = false
+                                adminCheckCompleted = true
 
                                 navController.navigate(AppRoute.Login) {
                                     popUpTo(navController.graph.id) {
@@ -600,8 +707,48 @@ fun NavGraph(
                                 }
                             }
 
+
                         )
                     }
+
+
+                    composable<AppRoute.AdminResidents> {
+
+                        LaunchedEffect(isAdmin, adminCheckCompleted) {
+                            if (adminCheckCompleted && !isAdmin) {
+                                navController.popBackStack()
+                            }
+                        }
+
+                        if (isAdmin && adminCheckCompleted) {
+                            LaunchedEffect(Unit) {
+                                adminViewModel.loadResidents()
+                                adminViewModel.loadParkingReservations()
+                            }
+
+                            AdminResidentsScreen(
+                                state = adminState,
+                                onBack = {
+                                    navController.popBackStack()
+                                },
+                                onRefresh = {
+                                    adminViewModel.loadResidents()
+                                },
+                                onApprove = adminViewModel::approve,
+                                onReject = adminViewModel::reject,
+                                onRefreshParking = {
+                                    adminViewModel.loadParkingReservations()
+                                }
+                            )
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.align(Alignment.Center)
+                                )
+                            }
+                        }
+                    }
+
                 }
 
                 SnackbarHost(

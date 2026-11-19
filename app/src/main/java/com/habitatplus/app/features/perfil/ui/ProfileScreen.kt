@@ -139,7 +139,11 @@ fun ProfileScreen(
                                 )
 
                                 Text(
-                                    text = "${state.tower} · ${state.apartment}",
+                                    text = if (state.verified) {
+                                        state.apartment
+                                    } else {
+                                        "Residencia pendiente de verificación"
+                                    },
                                     style = MaterialTheme.typography.bodyMedium,
                                     color =
                                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -394,8 +398,8 @@ private fun ProfileScreenPreview() {
         ProfileScreen(
             state = ProfileState(
                 isLoading = false,
-                name = "Kenett Ortega",
-                initials = "KO",
+                name = "Usuario de ejemplo",
+                initials = "UE",
                 role = "Residente",
                 condominium = "Condominio Las Acacias",
                 tower = "Torre A",

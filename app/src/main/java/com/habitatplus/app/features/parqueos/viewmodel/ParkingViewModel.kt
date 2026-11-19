@@ -13,10 +13,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.google.firebase.auth.FirebaseAuth
+import com.habitatplus.app.core.session.UserSessionRepository
 
 class ParkingViewModel : ViewModel() {
 
     private val repository = ParkingFirestoreRepository()
+    private val userRepository = UserSessionRepository()
 
     private val _state = MutableStateFlow(ParkingState())
     val state: StateFlow<ParkingState> = _state.asStateFlow()
@@ -126,16 +128,47 @@ class ParkingViewModel : ViewModel() {
 
 
 
+
     private fun startReservation(parkingId: String) {
         _state.value = _state.value.copy(
-            reservationForm = ReservationForm(
-                parkingId = parkingId,
-                apartment = "A-203"
-            ),
             reservationSuccess = false,
-            error = null
+            error = null,
+            isLoading = true
         )
+
+        viewModelScope.launch {
+            try {
+                val user = userRepository.getCurrentUser()
+
+                if (user.residenceStatus != "approved" ||
+                    user.apartment.isBlank()
+                ) {
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        error = "Tu residencia debe estar aprobada " +
+                                "para realizar reservas."
+                    )
+                    return@launch
+                }
+
+                _state.value = _state.value.copy(
+                    reservationForm = ReservationForm(
+                        parkingId = parkingId,
+                        apartment = user.apartment
+                    ),
+                    reservationSuccess = false,
+                    isLoading = false,
+                    error = null
+                )
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    error = "No se pudo cargar tu vivienda."
+                )
+            }
+        }
     }
+
 
     private fun updateForm(
         visitorName: String? = null,
@@ -176,6 +209,13 @@ class ParkingViewModel : ViewModel() {
         ) return
 
         val form = state.reservationForm
+
+        if (state.isLoading || form.apartment.isBlank()) {
+            _state.value = state.copy(
+                error = "Espera a que se verifique tu residencia."
+            )
+            return
+        }
 
         val visitorError =
             if (form.visitorName.isBlank())
@@ -347,24 +387,23 @@ class ParkingViewModel : ViewModel() {
     }
 
 
+
     private fun filterHistory() {
         val current = _state.value
 
-        val filtered = current.recentHistory.filter {
-            val search = current.historySearch
+        val filtered = current.recentHistory.filter { reservation ->
+            val search = current.historySearch.trim()
 
             val matchesSearch =
                 search.isBlank() ||
-                        it.visitorName.contains(search, true) ||
-                        it.parkingId.contains(search, true) ||
-                        it.date.contains(search, true)
+                        reservation.visitorName.contains(search, true) ||
+                        reservation.parkingId.contains(search, true) ||
+                        reservation.date.contains(search, true)
 
-            val matchesFilter = when (
-                current.historyFilter
-            ) {
-                "Activas" -> it.status == "Activa"
-                "Canceladas" -> it.status == "Cancelada"
-                "Finalizadas" -> it.status == "Finalizada"
+            val matchesFilter = when (current.historyFilter) {
+                "Activas" -> reservation.status == "Activa"
+                "Canceladas" -> reservation.status == "Cancelada"
+                "Finalizadas" -> reservation.status == "Finalizada"
                 else -> true
             }
 
@@ -375,6 +414,7 @@ class ParkingViewModel : ViewModel() {
             filteredHistory = filtered
         )
     }
+
 
     private fun updateStatistics() {
         val history = _state.value.recentHistory

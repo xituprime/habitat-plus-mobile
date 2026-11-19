@@ -1,3 +1,4 @@
+
 package com.habitatplus.app.ui.components
 
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,19 +22,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.habitatplus.app.ui.theme.HabitatBlue
-import com.habitatplus.app.ui.theme.HabitatLightBlue
 import com.habitatplus.app.ui.theme.HabitatPlusTheme
-import com.habitatplus.app.ui.theme.HabitatSurface
-import com.habitatplus.app.ui.theme.HabitatTextSecondary
 
 @Composable
 fun HabitatBottomBar(
     selectedDestination: HabitatDestination,
     onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
+    val colors = MaterialTheme.colorScheme
+
     Surface(
-        color = HabitatSurface,
+        color = colors.surface,
+        contentColor = colors.onSurface,
         shadowElevation = 6.dp
     ) {
         Row(
@@ -43,11 +44,8 @@ fun HabitatBottomBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             HabitatDestination.entries.forEach { destination ->
-
-                val selected =
-                    destination == selectedDestination
+                val selected = destination == selectedDestination
 
                 Column(
                     modifier = Modifier.clickable {
@@ -56,19 +54,16 @@ fun HabitatBottomBar(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-
                     Surface(
                         color = if (selected) {
-                            HabitatLightBlue
+                            colors.primaryContainer
                         } else {
-                            HabitatSurface
+                            colors.surface
                         },
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Icon(
-                            painter = painterResource(
-                                destination.iconRes
-                            ),
+                            painter = painterResource(destination.iconRes),
                             contentDescription = destination.label,
                             modifier = Modifier
                                 .padding(
@@ -77,9 +72,9 @@ fun HabitatBottomBar(
                                 )
                                 .size(18.dp),
                             tint = if (selected) {
-                                HabitatBlue
+                                colors.onPrimaryContainer
                             } else {
-                                HabitatTextSecondary
+                                colors.onSurfaceVariant
                             }
                         )
                     }
@@ -88,9 +83,9 @@ fun HabitatBottomBar(
                         text = destination.label,
                         fontSize = 9.sp,
                         color = if (selected) {
-                            HabitatBlue
+                            colors.primary
                         } else {
-                            HabitatTextSecondary
+                            colors.onSurfaceVariant
                         },
                         fontWeight = if (selected) {
                             FontWeight.SemiBold
@@ -105,16 +100,27 @@ fun HabitatBottomBar(
 }
 
 @Preview(
-    name = "BottomBar - Parqueos",
-    showBackground = true,
-    showSystemUi = true
+    name = "BottomBar claro",
+    showBackground = true
 )
 @Composable
-private fun HabitatBottomBarPreview() {
-    HabitatPlusTheme {
+private fun HabitatBottomBarLightPreview() {
+    HabitatPlusTheme(darkTheme = false) {
         HabitatBottomBar(
-            selectedDestination =
-                HabitatDestination.PARKING
+            selectedDestination = HabitatDestination.PARKING
+        )
+    }
+}
+
+@Preview(
+    name = "BottomBar oscuro",
+    showBackground = true
+)
+@Composable
+private fun HabitatBottomBarDarkPreview() {
+    HabitatPlusTheme(darkTheme = true) {
+        HabitatBottomBar(
+            selectedDestination = HabitatDestination.PARKING
         )
     }
 }
