@@ -429,6 +429,13 @@ fun NavGraph(
                     }
 
                     composable<AppRoute.ParkingHistory> {
+
+                        LaunchedEffect(Unit) {
+                            parkingViewModel.onIntent(
+                                ParkingIntent.LoadData
+                            )
+                        }
+
                         HistoryScreen(
                             state = parkingState,
                             onBackClick = {

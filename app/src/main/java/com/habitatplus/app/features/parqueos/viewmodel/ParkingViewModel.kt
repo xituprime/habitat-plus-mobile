@@ -387,24 +387,23 @@ class ParkingViewModel : ViewModel() {
     }
 
 
+
     private fun filterHistory() {
         val current = _state.value
 
-        val filtered = current.recentHistory.filter {
-            val search = current.historySearch
+        val filtered = current.recentHistory.filter { reservation ->
+            val search = current.historySearch.trim()
 
             val matchesSearch =
                 search.isBlank() ||
-                        it.visitorName.contains(search, true) ||
-                        it.parkingId.contains(search, true) ||
-                        it.date.contains(search, true)
+                        reservation.visitorName.contains(search, true) ||
+                        reservation.parkingId.contains(search, true) ||
+                        reservation.date.contains(search, true)
 
-            val matchesFilter = when (
-                current.historyFilter
-            ) {
-                "Activas" -> it.status == "Activa"
-                "Canceladas" -> it.status == "Cancelada"
-                "Finalizadas" -> it.status == "Finalizada"
+            val matchesFilter = when (current.historyFilter) {
+                "Activas" -> reservation.status == "Activa"
+                "Canceladas" -> reservation.status == "Cancelada"
+                "Finalizadas" -> reservation.status == "Finalizada"
                 else -> true
             }
 
@@ -415,6 +414,7 @@ class ParkingViewModel : ViewModel() {
             filteredHistory = filtered
         )
     }
+
 
     private fun updateStatistics() {
         val history = _state.value.recentHistory
