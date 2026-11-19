@@ -6,6 +6,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import com.habitatplus.app.data.repository.CloudCommonAreaReservation
 import com.habitatplus.app.data.repository.CommonAreaFirestoreRepository
 import com.habitatplus.app.features.areascomunes.intent.CommonAreaIntent
@@ -34,6 +36,7 @@ class CommonAreaViewModel(
     private val auth = FirebaseAuth.getInstance()
 
     private val repository = CommonAreaFirestoreRepository()
+    private val firestore = FirebaseFirestore.getInstance()
 
     private val notificationRepository =
         NotificationRepository(application)
@@ -278,16 +281,41 @@ class CommonAreaViewModel(
     }
 
     private fun loadAreas() {
-        _state.update {
-            it.copy(
-                areas = initialAreas,
-                isLoading = !reservationsLoaded
-            )
+        val uid = auth.currentUser?.uid ?: return
+        val version = sessionVersion
+        viewModelScope.launch {
+            try {
+                val docs = firestore.collection("commonAreas").get().await()
+                if (!sameSession(uid, version)) return@launch
+                val dynamic = docs.documents.mapNotNull { d ->
+                    val id = d.id
+                    val name = d.getString("name") ?: return@mapNotNull null
+                    CommonArea(
+                        id = id, name = name,
+                        description = d.getString("description").orEmpty(),
+                        locationType = d.getString("locationType") ?: "Interior",
+                        availabilityText = d.getString("availabilityText") ?: "Turnos de 1 hora",
+                        features = (d.get("features") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                        status = when (d.getString("status")) {
+                            "MAINTENANCE" -> CommonAreaStatus.MAINTENANCE
+                            "UNAVAILABLE" -> CommonAreaStatus.UNAVAILABLE
+                            else -> CommonAreaStatus.AVAILABLE
+                        }
+                    )
+                }
+                _state.update { it.copy(areas = (initialAreas + dynamic).distinctBy { a -> a.id },
+                    isLoading = !reservationsLoaded) }
+            } catch (e: Exception) {
+                if (sameSession(uid, version)) {
+                    Log.w("HabitatAreas", "No se pudo cargar el catálogo dinámico", e)
+                    _state.update { it.copy(areas = initialAreas, isLoading = !reservationsLoaded) }
+                }
+            }
         }
     }
 
     private fun selectArea(areaId: String) {
-        val area = initialAreas.firstOrNull {
+        val area = _state.value.areas.firstOrNull {
             it.id == areaId
         } ?: return
 
@@ -505,7 +533,7 @@ class CommonAreaViewModel(
                 }
 
                 try {
-                    val areaName = initialAreas
+                    val areaName = _state.value.areas
                         .firstOrNull { it.id == areaId }
                         ?.name ?: "Área común"
 

@@ -1,6 +1,7 @@
 package com.habitatplus.app.core.session
 
-data class ResidentUser(
+data class
+ResidentUser(
     val uid: String = "",
     val name: String = "",
     val lastName: String = "",

@@ -34,7 +34,9 @@ fun AdminResidentsScreen(
     onRefreshReports: () -> Unit = {},
     onChangeReportStatus: (String, String) -> Unit = { _, _ -> },
     onRefreshCatalog: () -> Unit = {},
-    onAddParking: (String) -> Unit = {}
+    onAddParking: (String) -> Unit = {},
+    onRefreshAreaCatalog: () -> Unit = {},
+    onAddCommonArea: (String, String, String) -> Unit = { _, _, _ -> }
 ) {
 
     val tabs = listOf("Viviendas", "Parqueos", "Áreas", "Reportes")
@@ -42,6 +44,9 @@ fun AdminResidentsScreen(
     var search by remember { mutableStateOf("") }
     var statusFilter by remember { mutableStateOf("Todas") }
     var newParking by remember { mutableStateOf("") }
+    var newAreaId by remember { mutableStateOf("") }
+    var newAreaName by remember { mutableStateOf("") }
+    var newAreaDescription by remember { mutableStateOf("") }
     Scaffold(topBar = { HabitatBackHeader("Administración", onBack) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
@@ -62,6 +67,16 @@ fun AdminResidentsScreen(
                         if (!state.isLoading && state.residents.isEmpty()) item { Text("No hay solicitudes pendientes.") }
                     }
                     1 -> {
+                        item { HorizontalDivider() }
+                        item { Text("Catálogo de parqueos", style = MaterialTheme.typography.titleMedium) }
+                        item { Button(onClick = onRefreshCatalog) { Text("Actualizar catálogo") } }
+                        item { Text(if (state.parkingSpaces.isEmpty()) "Sin parqueos dinámicos" else state.parkingSpaces.joinToString()) }
+                        item {
+                            OutlinedTextField(newParking, { newParking = it }, label = { Text("Nuevo código (V-06)") },
+                                modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        }
+                        item { Button(onClick = { onAddParking(newParking); newParking = "" }) { Text("Agregar parqueo") } }
+                        item { HorizontalDivider() }
                         item { Button(onClick = onRefreshParking) { Text("Actualizar reservas") } }
                         item {
                             OutlinedTextField(search, { search = it }, label = { Text("Buscar residente o parqueo") },
@@ -82,18 +97,23 @@ fun AdminResidentsScreen(
                                     record.reservation.date.contains(search, true))
                         }
                         items(filtered, key = { "parking_${it.reservation.id}" }) { AdminParkingCard(it) }
-                        item { HorizontalDivider() }
-                        item { Text("Catálogo de parqueos", style = MaterialTheme.typography.titleMedium) }
-                        item { Button(onClick = onRefreshCatalog) { Text("Actualizar catálogo") } }
-                        item { Text(if (state.parkingSpaces.isEmpty()) "Sin parqueos dinámicos" else state.parkingSpaces.joinToString()) }
-                        item {
-                            OutlinedTextField(newParking, { newParking = it }, label = { Text("Nuevo código (V-06)") },
-                                modifier = Modifier.fillMaxWidth(), singleLine = true)
-                        }
-                        item { Button(onClick = { onAddParking(newParking); newParking = "" }) { Text("Agregar parqueo") } }
+
                     }
                     2 -> {
-                        item { Button(onClick = onRefreshAreas) { Text("Actualizar áreas") } }
+                        item { Text("Catálogo de áreas comunes", style = MaterialTheme.typography.titleMedium) }
+                        item { Button(onClick = onRefreshAreaCatalog) { Text("Actualizar catálogo") } }
+                        if (state.isLoadingAreaCatalog) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                        item { Text(if (state.areaCatalog.isEmpty()) "No hay áreas adicionales registradas." else state.areaCatalog.joinToString("\n")) }
+                        item { OutlinedTextField(newAreaId, { newAreaId = it }, label = { Text("Código: gimnasio") }, modifier = Modifier.fillMaxWidth(), singleLine = true) }
+                        item { OutlinedTextField(newAreaName, { newAreaName = it }, label = { Text("Nombre del área") }, modifier = Modifier.fillMaxWidth(), singleLine = true) }
+                        item { OutlinedTextField(newAreaDescription, { newAreaDescription = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth()) }
+                        item { Button(onClick = {
+                            onAddCommonArea(newAreaId, newAreaName, newAreaDescription)
+                        }, enabled = newAreaId.isNotBlank() && newAreaName.isNotBlank() && newAreaDescription.isNotBlank()) { Text("Agregar área común") } }
+                        state.areaCatalogError?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error) } }
+                        item { HorizontalDivider() }
+                        item { Text("Reservas de áreas comunes", style = MaterialTheme.typography.titleMedium) }
+                        item { Button(onClick = onRefreshAreas) { Text("Actualizar reservas") } }
                         if (state.isLoadingAreas) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                         items(state.areaReservations, key = { "area_${it.id}" }) { record ->
                             Card(Modifier.fillMaxWidth()) {

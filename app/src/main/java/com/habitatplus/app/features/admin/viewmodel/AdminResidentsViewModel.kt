@@ -39,6 +39,9 @@ data class AdminResidentsState(
     val reports: List<AdminReportRecord> = emptyList(),
     val isLoadingReports: Boolean = false,
     val parkingSpaces: List<String> = emptyList(),
+    val areaCatalog: List<String> = emptyList(),
+    val isLoadingAreaCatalog: Boolean = false,
+    val areaCatalogError: String? = null,
     val isLoadingCatalog: Boolean = false,
     val residentsError: String? = null,
     val parkingError: String? = null,
@@ -79,6 +82,64 @@ class AdminResidentsViewModel : ViewModel() {
             } catch (e: Exception) {
                 if (auth.currentUser?.uid == uid && version == sessionVersion) {
                     _state.value = _state.value.copy(error = e.localizedMessage ?: "No se pudo verificar la sesión administrativa.")
+                }
+            }
+        }
+    }
+
+    fun loadAreaCatalog() {
+        val uid = auth.currentUser?.uid ?: return
+        val version = sessionVersion
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoadingAreaCatalog = true, areaCatalogError = null)
+            try {
+                verifyAdmin()
+                val docs = firestore.collection("commonAreas").get().await()
+                if (auth.currentUser?.uid == uid && version == sessionVersion) {
+                    _state.value = _state.value.copy(
+                        isLoadingAreaCatalog = false,
+                        areaCatalog = docs.documents.map { d ->
+                            "${d.id} - ${d.getString("name").orEmpty()}"
+                        }.sorted()
+                    )
+                }
+            } catch (e: Exception) {
+                if (auth.currentUser?.uid == uid && version == sessionVersion) {
+                    _state.value = _state.value.copy(isLoadingAreaCatalog = false,
+                        areaCatalogError = e.localizedMessage ?: "No se pudo consultar el catálogo de áreas.")
+                }
+            }
+        }
+    }
+
+    fun addCommonArea(idInput: String, nameInput: String, descriptionInput: String) {
+        val id = idInput.trim().lowercase(java.util.Locale.ROOT)
+        val name = nameInput.trim()
+        val description = descriptionInput.trim()
+        if (!Regex("[a-z0-9-]{3,40}").matches(id) || name.length !in 3..80 || description.length !in 3..300) {
+            _state.value = _state.value.copy(areaCatalogError = "Código (3-40 caracteres), nombre o descripción inválidos.")
+            return
+        }
+        val uid = auth.currentUser?.uid ?: return
+        val version = sessionVersion
+        viewModelScope.launch {
+            try {
+                verifyAdmin()
+                val ref = firestore.collection("commonAreas").document(id)
+                firestore.runTransaction { tx ->
+                    if (tx.get(ref).exists()) error("Ya existe un área con ese código.")
+                    tx.set(ref, mapOf("id" to id, "name" to name,
+                        "description" to description, "locationType" to "Interior",
+                        "availabilityText" to "Turnos de 1 hora",
+                        "features" to emptyList<String>(), "status" to "AVAILABLE"))
+                }.await()
+                if (auth.currentUser?.uid == uid && version == sessionVersion) {
+                    _state.value = _state.value.copy(message = "Área $name creada.", areaCatalogError = null)
+                    loadAreaCatalog()
+                }
+            } catch (e: Exception) {
+                if (auth.currentUser?.uid == uid && version == sessionVersion) {
+                    _state.value = _state.value.copy(areaCatalogError = e.localizedMessage ?: "No se pudo crear el área.")
                 }
             }
         }
