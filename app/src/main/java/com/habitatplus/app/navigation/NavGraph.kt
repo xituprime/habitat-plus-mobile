@@ -397,6 +397,7 @@ fun NavGraph(
                         ReservationScreen(
                             state = parkingState,
                             onIntent = parkingViewModel::onIntent,
+                            onVehiclePhotoChanged = parkingViewModel::setVehiclePhoto,
                             onBackClick = {
                                 navController.popBackStack()
                             },
@@ -692,6 +693,9 @@ fun NavGraph(
                             LaunchedEffect(Unit) {
                                 adminViewModel.loadResidents()
                                 adminViewModel.loadParkingReservations()
+                                adminViewModel.loadAreaReservations()
+                                adminViewModel.loadReports()
+                                adminViewModel.loadParkingCatalog()
                             }
 
                             AdminResidentsScreen(
@@ -704,9 +708,12 @@ fun NavGraph(
                                 },
                                 onApprove = adminViewModel::approve,
                                 onReject = adminViewModel::reject,
-                                onRefreshParking = {
-                                    adminViewModel.loadParkingReservations()
-                                }
+                                onRefreshParking = { adminViewModel.loadParkingReservations() },
+                                onRefreshAreas = { adminViewModel.loadAreaReservations() },
+                                onRefreshReports = { adminViewModel.loadReports() },
+                                onChangeReportStatus = adminViewModel::changeReportStatus,
+                                onRefreshCatalog = { adminViewModel.loadParkingCatalog() },
+                                onAddParking = adminViewModel::addParkingSpace
                             )
                         } else {
                             Box(

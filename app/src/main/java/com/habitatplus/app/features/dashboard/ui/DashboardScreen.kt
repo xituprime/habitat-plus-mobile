@@ -357,8 +357,12 @@ private fun DashboardReservationSection(
                 style = MaterialTheme.typography.titleLarge
             )
 
-            Text("No tienes reservas.")
+            Text("No tienes próximas reservas.")
         } else {
+            Text(
+                text = "Próxima reserva",
+                style = MaterialTheme.typography.titleMedium
+            )
             Text(
                 text = reservation.area,
                 style = MaterialTheme.typography.titleLarge,
@@ -385,13 +389,13 @@ private fun DashboardReservationSection(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Reserva de área común",
+                        text = "Reserva confirmada",
                         style = MaterialTheme.typography.titleMedium
                     )
 
-                    Text(
-                        text = "Código de acceso: #${reservation.accessCode}"
-                    )
+                    if (reservation.accessCode.isNotBlank()) {
+                        Text(text = "Referencia: ${reservation.accessCode}")
+                    }
                 }
             }
         }
