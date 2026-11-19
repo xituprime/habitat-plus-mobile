@@ -2,6 +2,7 @@ package com.habitatplus.app.features.reportes.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import com.habitatplus.app.data.repository.ReservationImageRepository
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -30,10 +31,12 @@ fun ReportPhoto(
     ) {
         value = withContext(Dispatchers.IO) {
             try {
-                context.contentResolver.openInputStream(
-                    Uri.parse(photoUri)
-                )?.use { input ->
-                    BitmapFactory.decodeStream(input)
+                if (photoUri.startsWith("cloud-report:")) {
+                    ReservationImageRepository().load("report", photoUri.removePrefix("cloud-report:"))
+                } else {
+                    context.contentResolver.openInputStream(Uri.parse(photoUri))?.use { input ->
+                        BitmapFactory.decodeStream(input)
+                    }
                 }
             } catch (exception: Exception) {
                 null

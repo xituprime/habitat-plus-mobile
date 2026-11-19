@@ -2,6 +2,8 @@
 package com.habitatplus.app.features.parqueos.viewmodel
 
 import android.app.Application
+import android.graphics.Bitmap
+import com.habitatplus.app.data.repository.ReservationImageRepository
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,6 +27,9 @@ class ParkingViewModel(
 ) : AndroidViewModel(application) {
 
     private val repository = ParkingFirestoreRepository()
+    private val imageRepository = ReservationImageRepository()
+    private var pendingVehiclePhoto: Bitmap? = null
+    fun setVehiclePhoto(bitmap: Bitmap?) { pendingVehiclePhoto = bitmap }
     private val userRepository = UserSessionRepository()
 
     private val notificationRepository =
@@ -133,6 +138,7 @@ class ParkingViewModel(
     }
 
     private fun startReservation(parkingId: String) {
+        pendingVehiclePhoto = null
         val requestedUid = auth.currentUser?.uid
         val version = sessionVersion
 
@@ -319,7 +325,7 @@ class ParkingViewModel(
                     return@launch
                 }
 
-                repository.createReservation(
+                val savedId = repository.createReservation(
                     CloudParkingReservation(
                         parkingId = form.parkingId,
                         visitorName = form.visitorName.trim(),
@@ -335,6 +341,16 @@ class ParkingViewModel(
 
                 if (!sameSession(requestedUid, version)) {
                     return@launch
+                }
+
+                val photo = pendingVehiclePhoto
+                if (photo != null) {
+                    try {
+                        imageRepository.save("parking", savedId, ReservationImageRepository.encode(photo))
+                        pendingVehiclePhoto = null
+                    } catch (e: Exception) {
+                        Log.w("ParkingViewModel", "La reserva se guardó, pero la fotografía no.", e)
+                    }
                 }
 
                 _state.value = _state.value.copy(

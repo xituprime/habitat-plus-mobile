@@ -328,7 +328,7 @@ private fun ProfileResidenceDialog(
 
                 Text(
                     text = "Los datos de residencia están sujetos " +
-                        "a validación administrativa.",
+                            "a validación administrativa.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -395,52 +395,10 @@ private fun ProfileEditDialog(
                 HorizontalDivider()
 
                 Text(
-                    text = "Datos de residencia",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "Los cambios de condominio, torre y apartamento " +
-                        "se enviarán para revisión administrativa.",
+                    text = "La vivienda aprobada solo puede gestionarse desde Administración.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
-                ProfileEditableField(
-                    value = state.draftCondominium,
-                    label = "Condominio",
-                    onValueChange = {
-                        onIntent(ProfileIntent.ChangeCondominium(it))
-                    },
-                    error = state.condominiumError,
-                    enabled = !state.isLoading,
-                    capitalization = KeyboardCapitalization.Words
-                )
-
-                ProfileEditableField(
-                    value = state.draftTower,
-                    label = "Torre",
-                    onValueChange = {
-                        onIntent(ProfileIntent.ChangeTower(it))
-                    },
-                    error = state.towerError,
-                    enabled = !state.isLoading,
-                    capitalization = KeyboardCapitalization.Words
-                )
-
-                ProfileEditableField(
-                    value = state.draftApartment,
-                    label = "Apartamento solicitado",
-                    onValueChange = {
-                        onIntent(ProfileIntent.ChangeApartment(it))
-                    },
-                    error = state.apartmentError,
-                    enabled = !state.isLoading,
-                    capitalization = KeyboardCapitalization.Characters
-                )
-
-                HorizontalDivider()
 
                 OutlinedTextField(
                     value = state.email,
@@ -492,7 +450,7 @@ private fun ProfileEditDialog(
             ) {
                 Text("Cancelar")
             }
-        )
+        }
     )
 }
 
@@ -554,7 +512,6 @@ private fun ProfileLightPreview() {
         )
     }
 }
-
 @Preview(name = "Perfil oscuro", showBackground = true)
 @Composable
 private fun ProfileDarkPreview() {

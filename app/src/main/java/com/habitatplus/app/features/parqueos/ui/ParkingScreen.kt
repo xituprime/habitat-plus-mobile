@@ -35,7 +35,6 @@ fun ParkingScreen(
 ) {
     val colors = MaterialTheme.colorScheme
 
-    val colors = MaterialTheme.colorScheme
 
     HabitatScaffold(
         title = "Parqueos",
@@ -64,7 +63,7 @@ fun ParkingScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Sin asignación",
+                            text = "Parqueo residencial no asignado",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = colors.onSurface
@@ -85,7 +84,7 @@ fun ParkingScreen(
                     }
 
                     StatusChip(
-                        text = "● Sin asignar",
+                        text = "● Sin parqueo",
                         status = ChipStatus.NEUTRAL
                     )
                 }
@@ -318,7 +317,6 @@ private fun VisitorCard(
                     color = colors.onSurface,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = colors.onSurface
                 )
 
                 Text(
@@ -398,8 +396,7 @@ private fun ReservationSummaryCard(
                     text = name,
                     color = colors.onSurface,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.onSurface
+                    fontWeight = FontWeight.SemiBold
                 )
 
                 Text(

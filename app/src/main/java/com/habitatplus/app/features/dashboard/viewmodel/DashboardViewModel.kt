@@ -6,13 +6,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.habitatplus.app.data.local.DatabaseProvider
-import com.habitatplus.app.data.local.ReportEntity
-import com.habitatplus.app.data.repository.ReportRepository
+import com.habitatplus.app.data.repository.CloudReport
+import com.habitatplus.app.data.repository.ReportFirestoreRepository
 import com.habitatplus.app.features.dashboard.data.DashboardRepository
 import com.habitatplus.app.features.dashboard.data.FakeDashboardRepository
 import com.habitatplus.app.features.dashboard.intent.DashboardIntent
 import com.habitatplus.app.features.dashboard.model.DashboardNavigation
+import com.habitatplus.app.features.dashboard.model.DashboardReservation
 import com.habitatplus.app.features.dashboard.model.DashboardReport
 import com.habitatplus.app.features.dashboard.model.DashboardTab
 import com.habitatplus.app.features.dashboard.state.DashboardState
@@ -27,6 +27,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 
 class DashboardViewModel(
     application: Application
@@ -35,11 +38,7 @@ class DashboardViewModel(
     private val dashboardRepository: DashboardRepository =
         FakeDashboardRepository
 
-    private val reportRepository = ReportRepository(
-        DatabaseProvider
-            .getDatabase(application)
-            .reportDao()
-    )
+    private val reportRepository = ReportFirestoreRepository()
 
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
@@ -51,6 +50,7 @@ class DashboardViewModel(
 
     private var reportsJob: Job? = null
     private var profileJob: Job? = null
+    private var reservationsJob: Job? = null
     private var observedUserId: String? = null
     private var profileUserId: String? = null
 
@@ -139,9 +139,11 @@ class DashboardViewModel(
     private fun clearUserData() {
         reportsJob?.cancel()
         profileJob?.cancel()
+        reservationsJob?.cancel()
 
         reportsJob = null
         profileJob = null
+        reservationsJob = null
 
         observedUserId = null
         profileUserId = null
@@ -151,6 +153,7 @@ class DashboardViewModel(
                 userName = "",
                 residence = "",
                 reports = emptyList(),
+                reservation = null,
                 pendingNavigation = null
             )
         }
@@ -183,7 +186,7 @@ class DashboardViewModel(
                 parkings = data.parkings,
                 freeVisitorSpaces = data.freeVisitorSpaces,
                 totalVisitorSpaces = data.totalVisitorSpaces,
-                reservation = data.reservation,
+                reservation = null,
                 maintenance = data.maintenance,
                 lastUpdated = updatedTime
             )
@@ -191,6 +194,62 @@ class DashboardViewModel(
 
         observeReports()
         loadUserProfile()
+        loadNextReservation()
+    }
+
+
+    private fun loadNextReservation() {
+        val uid = auth.currentUser?.uid ?: run {
+            _state.update { it.copy(reservation = null) }
+            return
+        }
+        reservationsJob?.cancel()
+        _state.update { it.copy(reservation = null) }
+        reservationsJob = viewModelScope.launch {
+            try {
+                val parking = firestore.collection("parkingReservations")
+                    .whereEqualTo("userId", uid).get().await().documents
+                val areas = firestore.collection("commonAreaReservations")
+                    .whereEqualTo("userId", uid).get().await().documents
+                val now = LocalDateTime.now()
+                data class Candidate(val time: LocalDateTime, val item: DashboardReservation)
+                val candidates = mutableListOf<Candidate>()
+                for (doc in parking) {
+                    if (doc.getString("status") != "Activa") continue
+                    val date = doc.getString("date") ?: continue
+                    val start = doc.getString("entryTime") ?: continue
+                    val end = doc.getString("exitTime") ?: continue
+                    val beginning = runCatching { LocalDateTime.of(LocalDate.parse(date), LocalTime.parse(start)) }.getOrNull() ?: continue
+                    val ending = runCatching { LocalDateTime.of(LocalDate.parse(date), LocalTime.parse(end)) }.getOrNull() ?: continue
+                    if (ending.isBefore(now)) continue
+                    candidates.add(Candidate(beginning, DashboardReservation(
+                        area = "Parqueo ${doc.getString("parkingId").orEmpty()}",
+                        schedule = "$date · $start–$end", status = "Activa", accessCode = ""
+                    )))
+                }
+                val names = mapOf("social-room" to "Salón social", "court" to "Cancha", "pool" to "Piscina", "grill" to "Churrasquera")
+                for (doc in areas) {
+                    if (doc.getString("status") != "ACTIVE") continue
+                    val date = doc.getString("date") ?: continue
+                    val start = doc.getString("startTime") ?: continue
+                    val end = doc.getString("endTime") ?: continue
+                    val beginning = runCatching { LocalDateTime.of(LocalDate.parse(date), LocalTime.parse(start)) }.getOrNull() ?: continue
+                    val ending = runCatching { LocalDateTime.of(LocalDate.parse(date), LocalTime.parse(end)) }.getOrNull() ?: continue
+                    if (ending.isBefore(now)) continue
+                    val areaId = doc.getString("areaId").orEmpty()
+                    candidates.add(Candidate(beginning, DashboardReservation(
+                        area = names[areaId] ?: areaId,
+                        schedule = "$date · $start–$end", status = "Confirmada", accessCode = ""
+                    )))
+                }
+                if (auth.currentUser?.uid == uid) {
+                    _state.update { it.copy(reservation = candidates.minByOrNull { c -> c.time }?.item) }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("DashboardViewModel", "No se pudo consultar próximas reservas", e)
+                if (auth.currentUser?.uid == uid) _state.update { it.copy(reservation = null) }
+            }
+        }
     }
 
     private fun loadUserProfile() {
@@ -327,7 +386,7 @@ class DashboardViewModel(
         reportsJob = viewModelScope.launch {
             try {
                 reportRepository
-                    .getReportsByUser(userId)
+                    .observeMyReports()
                     .collect { entities ->
 
                         if (auth.currentUser?.uid != userId) {
@@ -357,7 +416,7 @@ class DashboardViewModel(
         }
     }
 
-    private fun ReportEntity.toDashboardReport(): DashboardReport {
+    private fun CloudReport.toDashboardReport(): DashboardReport {
         val reportTitle = when (category) {
             "LIGHTING" -> "Reporte de iluminación"
             "NOISE" -> "Reporte de ruido"
@@ -422,6 +481,7 @@ class DashboardViewModel(
         auth.removeAuthStateListener(authListener)
         reportsJob?.cancel()
         profileJob?.cancel()
+        reservationsJob?.cancel()
         super.onCleared()
     }
 }

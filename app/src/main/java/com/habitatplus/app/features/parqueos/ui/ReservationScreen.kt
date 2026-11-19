@@ -38,6 +38,7 @@ fun ReservationScreen(
     onIntent: (ParkingIntent) -> Unit = {},
     onBackClick: () -> Unit = {},
     onReservationSuccess: () -> Unit = {},
+    onVehiclePhotoChanged: (Bitmap?) -> Unit = {},
     onDestinationClick: (HabitatDestination) -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
@@ -59,6 +60,7 @@ fun ReservationScreen(
     ) { bitmap ->
         if (bitmap != null) {
             vehiclePhoto = bitmap
+            onVehiclePhotoChanged(bitmap)
         }
     }
 
