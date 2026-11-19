@@ -35,8 +35,6 @@ fun ParkingScreen(
 ) {
     val colors = MaterialTheme.colorScheme
 
-    val colors = MaterialTheme.colorScheme
-
     HabitatScaffold(
         title = "Parqueos",
         selectedDestination = HabitatDestination.PARKING,
@@ -317,8 +315,7 @@ private fun VisitorCard(
                     text = code,
                     color = colors.onSurface,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.onSurface
+                    fontWeight = FontWeight.SemiBold
                 )
 
                 Text(
@@ -398,8 +395,7 @@ private fun ReservationSummaryCard(
                     text = name,
                     color = colors.onSurface,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.onSurface
+                    fontWeight = FontWeight.SemiBold
                 )
 
                 Text(

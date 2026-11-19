@@ -6,9 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.habitatplus.app.data.local.DatabaseProvider
-import com.habitatplus.app.data.local.ReportEntity
-import com.habitatplus.app.data.repository.ReportRepository
+import com.habitatplus.app.data.repository.CloudReport
+import com.habitatplus.app.data.repository.ReportFirestoreRepository
 import com.habitatplus.app.features.dashboard.data.DashboardRepository
 import com.habitatplus.app.features.dashboard.data.FakeDashboardRepository
 import com.habitatplus.app.features.dashboard.intent.DashboardIntent
@@ -35,11 +34,7 @@ class DashboardViewModel(
     private val dashboardRepository: DashboardRepository =
         FakeDashboardRepository
 
-    private val reportRepository = ReportRepository(
-        DatabaseProvider
-            .getDatabase(application)
-            .reportDao()
-    )
+    private val reportRepository = ReportFirestoreRepository()
 
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
@@ -183,7 +178,7 @@ class DashboardViewModel(
                 parkings = data.parkings,
                 freeVisitorSpaces = data.freeVisitorSpaces,
                 totalVisitorSpaces = data.totalVisitorSpaces,
-                reservation = data.reservation,
+                reservation = null,
                 maintenance = data.maintenance,
                 lastUpdated = updatedTime
             )
@@ -327,7 +322,7 @@ class DashboardViewModel(
         reportsJob = viewModelScope.launch {
             try {
                 reportRepository
-                    .getReportsByUser(userId)
+                    .observeMyReports()
                     .collect { entities ->
 
                         if (auth.currentUser?.uid != userId) {
@@ -357,7 +352,7 @@ class DashboardViewModel(
         }
     }
 
-    private fun ReportEntity.toDashboardReport(): DashboardReport {
+    private fun CloudReport.toDashboardReport(): DashboardReport {
         val reportTitle = when (category) {
             "LIGHTING" -> "Reporte de iluminación"
             "NOISE" -> "Reporte de ruido"

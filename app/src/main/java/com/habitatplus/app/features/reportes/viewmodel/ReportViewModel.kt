@@ -201,7 +201,7 @@ class ReportViewModel(
                             isLoading = false,
                             errorMessage =
                                 "No se pudieron cargar los reportes. " +
-                                "Verifica tu conexión y permisos."
+                                        "Verifica tu conexión y permisos."
                         )
                     }
                 }
@@ -253,7 +253,7 @@ class ReportViewModel(
             _state.update {
                 it.copy(
                     errorMessage = "Selecciona una categoría."
-                }
+                )
             }
             return
         }
@@ -352,9 +352,9 @@ class ReportViewModel(
                 _state.update {
                     it.copy(
                         reports = listOf(newReport) +
-                            it.reports.filterNot { existing ->
-                                existing.id == reportId
-                            },
+                                it.reports.filterNot { existing ->
+                                    existing.id == reportId
+                                },
                         selectedCategory = null,
                         description = "",
                         location = "",
@@ -386,8 +386,8 @@ class ReportViewModel(
                             title = "Reporte registrado",
                             message =
                                 "Tu reporte de $categoryName " +
-                                "fue registrado correctamente. " +
-                                "Código: $reportId.",
+                                        "fue registrado correctamente. " +
+                                        "Código: $reportId.",
                             relatedId = reportId
                         )
                     }
@@ -417,7 +417,7 @@ class ReportViewModel(
                             reportSubmitted = false,
                             errorMessage =
                                 "No se pudo guardar el reporte. " +
-                                "Revisa la conexión o los permisos de Firebase."
+                                        "Revisa la conexión o los permisos de Firebase."
                         )
                     }
                 }
@@ -450,8 +450,8 @@ class ReportViewModel(
         version: Int
     ): Boolean {
         return auth.currentUser?.uid == uid &&
-            observedUid == uid &&
-            sessionVersion == version
+                observedUid == uid &&
+                sessionVersion == version
     }
 
     override fun onCleared() {

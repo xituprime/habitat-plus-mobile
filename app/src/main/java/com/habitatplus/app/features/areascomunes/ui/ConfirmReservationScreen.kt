@@ -22,6 +22,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
@@ -52,6 +59,53 @@ fun ConfirmReservationScreen(
     onBackClick: () -> Unit = {}
 ) {
 
+    val auth = remember { FirebaseAuth.getInstance() }
+    val firestore = remember { FirebaseFirestore.getInstance() }
+    var resident by remember { mutableStateOf<ReservationResident?>(null) }
+    var identityError by remember { mutableStateOf<String?>(null) }
+    var identityLoading by remember { mutableStateOf(true) }
+
+    DisposableEffect(auth, firestore) {
+        var profileListener: com.google.firebase.firestore.ListenerRegistration? = null
+        val authListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            profileListener?.remove()
+            profileListener = null
+            resident = null
+            identityError = null
+            identityLoading = true
+            val uid = firebaseAuth.currentUser?.uid
+            if (uid == null) {
+                identityLoading = false
+                identityError = "Debes iniciar sesión."
+            } else {
+                profileListener = firestore.collection("users")
+                    .document(uid)
+                    .addSnapshotListener { snapshot, error ->
+                        if (auth.currentUser?.uid != uid) return@addSnapshotListener
+                        identityLoading = false
+                        if (error != null || snapshot == null || !snapshot.exists()) {
+                            resident = null
+                            identityError = "No se pudo verificar tu identidad."
+                        } else {
+                            val fullName = listOf(
+                                snapshot.getString("name").orEmpty().trim(),
+                                snapshot.getString("lastName").orEmpty().trim()
+                            ).filter { it.isNotEmpty() }.joinToString(" ")
+                            val apartment = snapshot.getString("apartment").orEmpty().trim()
+                            val approved = snapshot.getString("residenceStatus") == "approved"
+                            resident = ReservationResident(fullName, apartment, approved)
+                            identityError = null
+                        }
+                    }
+            }
+        }
+        auth.addAuthStateListener(authListener)
+        onDispose {
+            auth.removeAuthStateListener(authListener)
+            profileListener?.remove()
+        }
+    }
+
     val selectedArea = state.areas.firstOrNull {
         it.id == state.selectedAreaId
     }
@@ -77,7 +131,11 @@ fun ConfirmReservationScreen(
     )
 
     val canConfirm =
-        !state.isReservationConfirmed &&
+        resident?.isApproved == true &&
+                !resident?.name.isNullOrBlank() &&
+                !resident?.apartment.isNullOrBlank() &&
+                !identityLoading &&
+                !state.isReservationConfirmed &&
                 !state.isSavingReservation &&
                 !state.isLoading &&
                 selectedArea != null &&
@@ -308,7 +366,7 @@ fun ConfirmReservationScreen(
                     modifier = Modifier.height(14.dp)
                 )
 
-                // Residente titular: datos ficticios
+                // Identidad real del residente autenticado
 
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -327,7 +385,12 @@ fun ConfirmReservationScreen(
                         ) {
 
                             Text(
-                                text = "AP",
+                                text = resident?.name?.split(" ")
+                                    ?.filter { it.isNotBlank() }
+                                    ?.take(2)
+                                    ?.joinToString("") { it.take(1) }
+                                    ?.uppercase(Locale.getDefault())
+                                    ?: "--",
                                 modifier = Modifier.padding(9.dp),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -350,13 +413,18 @@ fun ConfirmReservationScreen(
                             )
 
                             Text(
-                                text = "Axel Perez",
+                                text = resident?.name?.ifBlank { "Nombre no disponible" }
+                                    ?: "Verificando residente...",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
 
                             Text(
-                                text = "Apartamento\nA-203",
+                                text = if (resident?.isApproved == true) {
+                                    "Apartamento\n${resident?.apartment.orEmpty()}"
+                                } else {
+                                    "Residencia pendiente de aprobación"
+                                },
                                 fontSize = 9.sp,
                                 lineHeight = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -456,7 +524,7 @@ fun ConfirmReservationScreen(
             modifier = Modifier.height(10.dp)
         )
 
-        // Confirmar reserva con Room
+        // Confirmar reserva en Firestore a través del ViewModel
 
         Button(
             onClick = {
@@ -490,7 +558,16 @@ fun ConfirmReservationScreen(
             )
         }
 
-        // Mostrar errores de Room
+        if (identityError != null || (resident != null && !resident!!.isApproved)) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = identityError ?: "Tu vivienda debe estar aprobada para reservar.",
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 11.sp
+            )
+        }
+
+        // Mostrar errores de la reserva
 
         if (state.errorMessage != null) {
 
@@ -557,6 +634,12 @@ fun ConfirmReservationScreen(
         )
     }
 }
+
+private data class ReservationResident(
+    val name: String,
+    val apartment: String,
+    val isApproved: Boolean
+)
 
 @Composable
 private fun ReservationInfoRow(

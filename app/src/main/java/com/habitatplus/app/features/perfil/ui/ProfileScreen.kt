@@ -328,7 +328,7 @@ private fun ProfileResidenceDialog(
 
                 Text(
                     text = "Los datos de residencia están sujetos " +
-                        "a validación administrativa.",
+                            "a validación administrativa.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -402,7 +402,7 @@ private fun ProfileEditDialog(
 
                 Text(
                     text = "Los cambios de condominio, torre y apartamento " +
-                        "se enviarán para revisión administrativa.",
+                            "se enviarán para revisión administrativa.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -492,7 +492,7 @@ private fun ProfileEditDialog(
             ) {
                 Text("Cancelar")
             }
-        )
+        }
     )
 }
 
@@ -554,7 +554,6 @@ private fun ProfileLightPreview() {
         )
     }
 }
-
 @Preview(name = "Perfil oscuro", showBackground = true)
 @Composable
 private fun ProfileDarkPreview() {
